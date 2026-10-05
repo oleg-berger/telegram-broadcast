@@ -24,6 +24,7 @@ final readonly class Config
         public string $mailTransport,
         public array $gmail,
         public int $mailSendIntervalSeconds,
+        public ?int $teamChannelId,
     ) {}
 
     /** @param array<string, mixed> $environment */
@@ -102,13 +103,14 @@ final readonly class Config
             $transport,
             $gmail,
             self::integer($environment, 'MAIL_SEND_INTERVAL_SECONDS', 1, 86400, 2),
+            self::teamChannel($environment),
         );
     }
 
     public static function fromEnvironment(): self
     {
         $environment = [];
-        foreach (['TELEGRAM_BOT_TOKEN', 'TELEGRAM_ADMIN_IDS', 'TELEGRAM_SUPERADMIN_IDS', 'ADMINS_CAN_APPROVE_USERS', 'ADMINS_CAN_EXPORT_USERS', 'TRANSLATOR_API_KEY', 'TRANSLATOR_API_URL', 'DATABASE_PATH', 'APP_ENV', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_ENCRYPTION', 'SMTP_USERNAME', 'SMTP_PASSWORD', 'MAIL_FROM_ADDRESS', 'MAIL_FROM_NAME', 'MAIL_REPLY_TO', 'MAIL_SEND_INTERVAL_SECONDS', 'MAIL_TRANSPORT', 'GMAIL_OAUTH_CLIENT_FILE', 'GMAIL_OAUTH_TOKEN_FILE'] as $key) {
+        foreach (['TELEGRAM_BOT_TOKEN', 'TELEGRAM_ADMIN_IDS', 'TELEGRAM_SUPERADMIN_IDS', 'TELEGRAM_TEAM_CHANNEL_ID', 'ADMINS_CAN_APPROVE_USERS', 'ADMINS_CAN_EXPORT_USERS', 'TRANSLATOR_API_KEY', 'TRANSLATOR_API_URL', 'DATABASE_PATH', 'APP_ENV', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_ENCRYPTION', 'SMTP_USERNAME', 'SMTP_PASSWORD', 'MAIL_FROM_ADDRESS', 'MAIL_FROM_NAME', 'MAIL_REPLY_TO', 'MAIL_SEND_INTERVAL_SECONDS', 'MAIL_TRANSPORT', 'GMAIL_OAUTH_CLIENT_FILE', 'GMAIL_OAUTH_TOKEN_FILE'] as $key) {
             $value = getenv($key);
             if ($value !== false) {
                 $environment[$key] = $value;
@@ -149,6 +151,18 @@ final readonly class Config
         if (!in_array($value, ['true', 'false'], true)) { throw new InvalidArgumentException(self::ERROR); }
 
         return $value === 'true';
+    }
+
+    private static function teamChannel(array $environment): ?int
+    {
+        $value = $environment['TELEGRAM_TEAM_CHANNEL_ID'] ?? '';
+        if ($value === '') {
+            return null;
+        }
+        if (!is_string($value) || !preg_match('/^-100[1-9][0-9]*$/D', $value)) {
+            throw new InvalidArgumentException(self::ERROR);
+        }
+        return self::integer($environment, 'TELEGRAM_TEAM_CHANNEL_ID', -4503599627370495, -1001);
     }
 
     private static function integer(array $environment, string $key, int $min, int $max, ?int $default = null): int

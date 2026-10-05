@@ -7,7 +7,7 @@ namespace Broadcast\Application;
 interface Store
 {
     public function transaction(callable $operation): mixed;
-    public function acceptUpdate(int $id): bool;
+    public function acceptUpdate(int $id, ?int $sourceDate = null): bool;
     public function user(int $id): ?array;
     public function saveUser(array $user): void;
     public function queueReply(int $chatId, string $text, array $options = []): void;

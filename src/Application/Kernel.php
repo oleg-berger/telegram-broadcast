@@ -22,9 +22,11 @@ final class Kernel
         if (!isset($update['update_id']) || !is_int($update['update_id'])) { return; }
         // Commit the update receipt and all resulting jobs together, before polling advances its offset.
         $this->store->transaction(function () use ($update): void {
-            if (!$this->store->acceptUpdate($update['update_id'])) { return; }
             $callback = $update['callback_query'] ?? null;
             $message = $callback['message'] ?? ($update['message'] ?? null);
+            // Callback dates belong to the original button message, not the later click.
+            $sourceDate = is_int($message['date'] ?? null) ? $message['date'] : null;
+            if (!$this->store->acceptUpdate($update['update_id'], $sourceDate)) { return; }
             if (!is_array($message) || ($message['chat']['type'] ?? '') !== 'private') { return; }
             $id = (int) ($callback['from']['id'] ?? $message['from']['id'] ?? 0);
             if ($id <= 0 || (int) $message['chat']['id'] !== $id) { return; }

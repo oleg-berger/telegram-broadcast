@@ -35,6 +35,7 @@ final class Worker
                 'translate' => $this->translate($job),
                 'translate_subject' => $this->translateSubject($job),
                 'delivery' => $this->deliver($job, $now),
+                'channel_post' => $this->channelPost($job),
                 'message' => $this->message($job),
                 'photo' => $this->photo($job),
                 'callback' => $this->callback($job),
@@ -50,7 +51,7 @@ final class Worker
             // Error text is deliberately not persisted: upstream responses can echo personal data.
             $this->store->deferJob($job['id'], $attempts, $now + max($failure->retryAfter ?? 0, 2 ** $attempts), $error, $failed);
             $this->log($failed ? 'job_failed' : 'job_deferred', $job, $attempts);
-            if ($failure->blocked && $job['user_id'] !== null) { $this->store->disableSubscriber($job['user_id']); }
+            if ($failure->blocked && $job['user_id'] !== null && $job['user_id'] > 0) { $this->store->disableSubscriber($job['user_id']); }
             if ($failed && in_array($job['kind'], ['translate', 'translate_subject'], true)) {
                 $broadcast = $this->store->broadcast($job['broadcast_id']);
                 if ($broadcast['approved_by']) {
@@ -114,6 +115,20 @@ final class Worker
     private function message(array $job): void
     {
         $this->sendParts($job, $job['payload']['text'], $job['payload']['options']);
+    }
+
+    private function channelPost(array $job): void
+    {
+        $broadcast = $this->store->broadcast($job['broadcast_id']);
+        if ($broadcast === null || !$broadcast['approved_by'] || $broadcast['team_channel_id'] !== $job['user_id']) {
+            throw new ApiFailure('Channel publication is not approved.');
+        }
+        $text = $this->store->translation($job['broadcast_id'], 'RU');
+        $subject = $this->store->translationSubject($job['broadcast_id'], 'RU');
+        if ($text === null || trim($text) === '' || $subject === null || trim($subject) === '') {
+            throw new ApiFailure('Russian channel translation is unavailable.', true);
+        }
+        $this->sendParts($job, $subject . "\n\n" . $text);
     }
 
     private function photo(array $job): void

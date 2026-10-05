@@ -122,6 +122,12 @@
     "Email (aceptado por el servicio de correo): enviados {done}, omitidos {skipped}, errores {failed}.",
     "Email (accepté par le service de messagerie) : envoyés {done}, ignorés {skipped}, erreurs {failed}."
   ],
+  "broadcast_report_team": [
+    "Канал команды (RU): опубликовано {done}, пропущено {skipped}, ошибки {failed}.",
+    "Team channel (RU): published {done}, skipped {skipped}, errors {failed}.",
+    "Canal del equipo (RU): publicados {done}, omitidos {skipped}, errores {failed}.",
+    "Canal de l’équipe (RU) : publiés {done}, ignorés {skipped}, erreurs {failed}."
+  ],
   "draft_author": [
     "Автор: {author}",
     "Author: {author}",

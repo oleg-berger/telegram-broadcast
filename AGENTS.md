@@ -40,12 +40,14 @@ docker compose -f compose.yaml -f compose.test.yaml up -d # + Mailpit (тест�
 
 ## Конфигурация
 
+`TELEGRAM_TEAM_CHANNEL_ID` — необязательный полный отрицательный Bot API ID канала `-100…`; пустое значение отключает новые публикации. Канал фиксируется снимком при одобрении. RU-переводы только для канала не должны отменять пользовательские доставки; результат `channel_post` учитывается отдельно в отчёте. Подробности: docs/TEAM-CHANNEL.md.
+
 Читается только из переменных окружения (загрузчика `.env` нет, Compose подставляет файл сам). Обязательные ключи: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ADMIN_IDS`, `TELEGRAM_SUPERADMIN_IDS`, `TRANSLATOR_API_KEY`, `TRANSLATOR_API_URL` (`https://api-free.deepl.com` или `https://api.deepl.com`, без пути; модель и температура не используются), `DATABASE_PATH`, `MAIL_FROM_ADDRESS/NAME`. `MAIL_TRANSPORT=smtp` по умолчанию требует `SMTP_HOST/PORT/ENCRYPTION/USERNAME/PASSWORD`; `MAIL_TRANSPORT=gmail` требует `GMAIL_OAUTH_CLIENT_FILE` и `GMAIL_OAUTH_TOKEN_FILE` — пути к приватным JSON OAuth-клиента и refresh token. Файлы читаются без сети при check; секреты не печатаются. Опциональные: `APP_ENV` (`production` по умолчанию; `test` разрешает `SMTP_ENCRYPTION=none` и пустые почтовые доступы — только локальный приёмник), `ADMINS_CAN_APPROVE_USERS`, `ADMINS_CAN_EXPORT_USERS` (`true`/`false`), `MAIL_REPLY_TO`, `MAIL_SEND_INTERVAL_SECONDS` (1–86400, по умолчанию 2). Значения с префиксом `replace_with_` отклоняются. `Config` бросает одно общее сообщение без значений секретов.
 
 ## Ключевые инварианты — не нарушать
 
 - Один update = одна короткая транзакция в `Kernel` (приём update, изменения анкеты/черновика, постановка заданий). Повторный update игнорируется (`processed_updates`).
-- Вся внешняя активность — через таблицу `jobs` и `Worker::tick()` (одна операция за тик). Известные `kind`: `message`, `photo`, `callback`, `translate`, `translate_subject`, `delivery` (каналы `telegram`/`email`), `comment`, `export`. Новые виды добавлять и в `nextJob`, и в `match` Worker'а, и в каскады `refreshBroadcasts` при необходимости.
+- Вся внешняя активность — через таблицу `jobs` и `Worker::tick()` (одна операция за тик). Известные `kind`: `message`, `photo`, `callback`, `translate`, `translate_subject`, `delivery` (каналы `telegram`/`email`), `channel_post` (русская тема и текст в командный канал), `comment`, `export`. Новые виды добавлять и в `nextJob`, и в `match` Worker'а, и в каскады `refreshBroadcasts` при необходимости.
 - Рассылка начинается только после одобрения черновика суперадминистратором; аудитория и языки фиксируются снимком на момент одобрения. Кнопки привязаны к `id:version` / `id:revision` — старые кнопки обязаны оставаться безопасными.
 - Исходный текст никогда не подменяет отсутствующий перевод (объявления и комментарии). Ошибки перевода → повторы, затем уведомление сотруднику; оригинал не отправляется.
 - Telegram и email — независимые задания; сбой одного канала не отменяет другой. Блокировка бота отключает только Telegram-доставку (`subscribed=0`), одобрение и почта продолжаются.
