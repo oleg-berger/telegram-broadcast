@@ -9,9 +9,11 @@ use Broadcast\Infrastructure\Export\XlsxUsers;
 use Broadcast\Infrastructure\Http\OpenAiTranslator;
 use Broadcast\Infrastructure\Http\TelegramClient;
 use Broadcast\Infrastructure\Mail\SmtpMailer;
+use Broadcast\Infrastructure\Mail\GmailApiMailer;
 use Broadcast\Infrastructure\Runtime\CommandMenu;
 use Broadcast\Infrastructure\Runtime\Config;
 use Broadcast\Infrastructure\Runtime\DailyBackup;
+use Broadcast\Infrastructure\Runtime\DatabaseReset;
 use Broadcast\Infrastructure\Runtime\Log;
 use Broadcast\Infrastructure\Runtime\Poller;
 use Broadcast\Infrastructure\Runtime\ProcessLock;
@@ -33,10 +35,10 @@ $log = new Log();
 try {
     $command = $argv[1] ?? 'help';
     if ($command === 'help') {
-        echo "Commands:\n  poll [--once]\n  worker [--once]\n  check\n  commands\n  migrate\n  backup\n  restore BACKUP_FILE --confirm\n";
+        echo "Commands:\n  poll [--once]\n  worker [--once]\n  check\n  commands\n  migrate\n  backup\n  reset-data [--confirm]\n  restore BACKUP_FILE --confirm\n";
         exit(0);
     }
-    if (!in_array($command, ['poll', 'worker', 'migrate', 'backup', 'restore', 'check', 'commands'], true)) {
+    if (!in_array($command, ['poll', 'worker', 'migrate', 'backup', 'restore', 'reset-data', 'check', 'commands'], true)) {
         throw new InvalidArgumentException('Unknown command.');
     }
     $path = getenv('DATABASE_PATH');
@@ -46,6 +48,15 @@ try {
     $runtimeDirectory = dirname($path) . '/runtime';
     $backupDirectory = dirname($path) . '/backups';
     $locks = [];
+
+    if ($command === 'reset-data') {
+        if (array_diff(array_slice($argv, 2), ['--confirm'])) {
+            throw new InvalidArgumentException('Unknown reset option.');
+        }
+        $result = (new DatabaseReset())->run($path, in_array('--confirm', $argv, true));
+        $log->event($result['confirmed'] ? 'reset_complete' : 'reset_inspected', $result);
+        exit(0);
+    }
 
     if (in_array($command, ['migrate', 'restore'], true)) {
         // Maintenance refuses to run while either process is active.
@@ -79,15 +90,15 @@ try {
     $telegram = new TelegramClient($config->telegramToken);
     if ($command === 'commands') { (new CommandMenu())->install($telegram, $config); $log->event('commands_updated'); exit(0); }
     $locks[] = ProcessLock::acquire($runtimeDirectory, $command);
-    $store = new SqliteStore($path);
+    $store = new SqliteStore($path, $config->teamChannelId);
     $store->migrate();
-    $poller = new Poller($store, $telegram, new Kernel($store, $config->adminIds, $config->superadminIds, $config->adminsCanApproveUsers, $config->adminsCanExportUsers, $config->testMode));
+    $poller = new Poller($store, $telegram, new Kernel($store, $config->adminIds, $config->superadminIds, $config->adminsCanApproveUsers, $config->adminsCanExportUsers));
     $worker = new Worker($store, $telegram, new OpenAiTranslator($config->translatorApiKey, $config->translatorApiUrl, $config->translatorModel, $config->translatorTemperature),
         static function (array $event) use ($log): void {
             $name = $event['event'];
             unset($event['event']);
             $log->event($name, $event);
-        }, new SmtpMailer(...$config->smtp), new XlsxUsers(), $config->mailSendIntervalSeconds);
+        }, $config->mailTransport === 'gmail' ? new GmailApiMailer(...$config->gmail) : new SmtpMailer(...$config->smtp), new XlsxUsers(), $config->mailSendIntervalSeconds);
     $dailyBackup = new DailyBackup($path, $backupDirectory, $runtimeDirectory);
     $stop = new StopSignal();
     $once = in_array('--once', $argv, true);

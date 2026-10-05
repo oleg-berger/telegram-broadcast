@@ -75,7 +75,7 @@ final class DeliveryTest extends TestCase
         $this->user(1);
         $id = $this->broadcast();
         $this->drain();
-        self::assertSame([[100, "Рассылка #$id:\nTelegram: отправлено 1, пропущено 0, ошибки 0.\nEmail (принято SMTP): отправлено 1, пропущено 0, ошибки 0."]], $this->reports());
+        self::assertSame([[100, "Рассылка #$id:\nTelegram: отправлено 1, пропущено 0, ошибки 0.\nEmail (принято почтовым сервисом): отправлено 1, пропущено 0, ошибки 0."]], $this->reports());
 
         $this->user(2, 'FR');
         self::assertTrue($this->store->transaction(fn () => $this->store->addCatchup(2, 'FR')));
@@ -89,7 +89,7 @@ final class DeliveryTest extends TestCase
         self::assertCount(1, $this->reports());
         self::assertTrue($this->store->transaction(fn () => $this->store->addCatchup(2, 'FR')));
         $this->drain();
-        self::assertSame([100, "Рассылка #$id:\nTelegram: отправлено 2, пропущено 0, ошибки 0.\nEmail (принято SMTP): отправлено 2, пропущено 0, ошибки 0."], $this->reports()[1]);
+        self::assertSame([100, "Рассылка #$id:\nTelegram: отправлено 2, пропущено 0, ошибки 0.\nEmail (принято почтовым сервисом): отправлено 2, пропущено 0, ошибки 0."], $this->reports()[1]);
         self::assertCount(2, $this->reports());
         self::assertSame(1, $this->store->broadcast($id)['reported']);
 
@@ -113,7 +113,7 @@ final class DeliveryTest extends TestCase
         $this->user(2);
         self::assertTrue($this->store->transaction(fn () => $this->store->addCatchup(2, 'RU')));
         $this->drain();
-        self::assertSame([[100, "Рассылка #$id:\nTelegram: отправлено 2, пропущено 0, ошибки 0.\nEmail (принято SMTP): отправлено 2, пропущено 0, ошибки 0."]], $this->reports());
+        self::assertSame([[100, "Рассылка #$id:\nTelegram: отправлено 2, пропущено 0, ошибки 0.\nEmail (принято почтовым сервисом): отправлено 2, пропущено 0, ошибки 0."]], $this->reports());
     }
 
     public function testChannelsAreIndependentAndTranslationsAreReused(): void
@@ -169,7 +169,7 @@ final class DeliveryTest extends TestCase
         $this->failMail = true;
         $this->drain();
         self::assertCount(2, $this->reports());
-        self::assertSame([100, "Рассылка #$id:\nTelegram: отправлено 1, пропущено 0, ошибки 0.\nEmail (принято SMTP): отправлено 0, пропущено 0, ошибки 1."], $this->reports()[1]);
+        self::assertSame([100, "Рассылка #$id:\nTelegram: отправлено 1, пропущено 0, ошибки 0.\nEmail (принято почтовым сервисом): отправлено 0, пропущено 0, ошибки 1."], $this->reports()[1]);
         self::assertTrue($this->store->retryBroadcast($id));
         $this->store->refreshBroadcasts();
         self::assertSame(0, $this->store->broadcast($id)['reported']);
@@ -178,7 +178,7 @@ final class DeliveryTest extends TestCase
         $this->store->addCatchup(1, 'FR');
         $this->drain();
         self::assertCount(3, $this->reports());
-        self::assertSame([100, "Рассылка #$id:\nTelegram: отправлено 1, пропущено 0, ошибки 0.\nEmail (принято SMTP): отправлено 1, пропущено 0, ошибки 0."], $this->reports()[2]);
+        self::assertSame([100, "Рассылка #$id:\nTelegram: отправлено 1, пропущено 0, ошибки 0.\nEmail (принято почтовым сервисом): отправлено 1, пропущено 0, ошибки 0."], $this->reports()[2]);
         self::assertCount(1, $this->mail);
         self::assertCount(1, array_filter($this->sent, fn ($v) => $v === [1, 'FR:News']));
     }

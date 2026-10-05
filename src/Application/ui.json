@@ -1,33 +1,90 @@
 {
-  "test_reset_unavailable": [
-    "Сброс анкеты доступен только суперадминистратору в тестовом режиме.",
-    "Registration reset is available only to a superadmin in test mode.",
-    "Solo un superadministrador puede restablecer el registro en modo de prueba.",
-    "La réinitialisation est réservée au superadministrateur en mode test."
+  "draft_send": [
+    "📨 Разослать", "📨 Send broadcast", "📨 Enviar anuncio", "📨 Diffuser"
   ],
-  "test_reset_help": [
-    "/resetuser ID — сбросить тестовую анкету для регистрации с нуля",
-    "/resetuser ID — reset a test registration to start again",
-    "/resetuser ID — restablecer el registro de prueba desde cero",
-    "/resetuser ID — recommencer une inscription de test à zéro"
+  "draft_submit": [
+    "📨 На согласование", "📨 Submit for approval", "📨 Enviar para aprobación", "📨 Soumettre pour approbation"
   ],
-  "test_reset_not_found": [
-    "Пользователь не найден.",
-    "User not found.",
-    "Usuario no encontrado.",
-    "Utilisateur introuvable."
+  "draft_approve": [
+    "✅ Одобрить и разослать", "✅ Approve and send", "✅ Aprobar y enviar", "✅ Approuver et diffuser"
   ],
-  "test_reset_done": [
-    "Тестовая анкета пользователя #{id} сброшена. Для новой регистрации нужно заполнить все поля заново.",
-    "Test registration for user #{id} has been reset. All fields must be completed again.",
-    "Se ha restablecido el registro de prueba del usuario #{id}. Debe completar todos los campos de nuevo.",
-    "L’inscription de test de l’utilisateur nº {id} a été réinitialisée. Tous les champs doivent être remplis à nouveau."
+  "draft_return": [
+    "✏️ Вернуть на доработку", "✏️ Return for revision", "✏️ Devolver para revisión", "✏️ Renvoyer pour modification"
   ],
-  "test_reset_user": [
-    "Ваша тестовая анкета сброшена. Нажмите /start, выберите язык и заполните все поля заново. После отправки потребуется новое одобрение.",
-    "Your test registration has been reset. Press /start, choose a language and complete all fields again. A new approval will be required.",
-    "Se ha restablecido su registro de prueba. Pulse /start, elija un idioma y complete todos los campos de nuevo. Se necesitará una nueva aprobación.",
-    "Votre inscription de test a été réinitialisée. Appuyez sur /start, choisissez une langue et remplissez tous les champs à nouveau. Une nouvelle approbation sera nécessaire."
+  "draft_cancel": [
+    "Отменить черновик", "Cancel draft", "Cancelar borrador", "Annuler le brouillon"
+  ],
+  "draft_subject_label": [
+    "Тема:", "Subject:", "Asunto:", "Objet :"
+  ],
+  "draft_send_prompt": [
+    "Разослать пользователям или отредактировать?", "Send to users or edit?", "¿Enviar a los usuarios o editar?", "Diffuser aux utilisateurs ou modifier ?"
+  ],
+  "draft_preview_header": [
+    "Объявление #{id} · {status}", "Announcement #{id} · {status}", "Anuncio #{id} · {status}", "Annonce #{id} · {status}"
+  ],
+  "broadcast_started": [
+    "✅ Рассылка #{id} запущена. Получателей: {recipients}. Готовим переводы.",
+    "✅ Broadcast #{id} started. Recipients: {recipients}. Preparing translations.",
+    "✅ Anuncio #{id} iniciado. Destinatarios: {recipients}. Preparando traducciones.",
+    "✅ Diffusion #{id} lancée. Destinataires : {recipients}. Préparation des traductions."
+  ],
+  "draft_send_denied": [
+    "Прямая отправка доступна только суперадминистратору. Отправьте черновик на согласование.",
+    "Only superadmins can send directly. Submit the draft for approval.",
+    "Solo los superadministradores pueden enviar directamente. Envíe el borrador para aprobación.",
+    "Seuls les superadministrateurs peuvent diffuser directement. Soumettez le brouillon pour approbation."
+  ],
+  "draft_subject_required": [
+    "Сначала укажите тему письма.", "Enter the email subject first.", "Primero indique el asunto del correo.", "Indiquez d’abord l’objet du courriel."
+  ],
+  "draft_subject_invalid": [
+    "Укажите тему одной строкой, до 200 символов.", "Enter a subject on one line, up to 200 characters.", "Indique el asunto en una línea de hasta 200 caracteres.", "Indiquez l’objet sur une ligne de 200 caractères maximum."
+  ],
+  "draft_subject_prompt": [
+    "✉️ Черновик #{id} сохранён. Введите тему письма одной строкой (до 200 символов).\n/cancel — отменить черновик",
+    "✉️ Draft #{id} saved. Enter the email subject on one line (up to 200 characters).\n/cancel — cancel the draft",
+    "✉️ Borrador #{id} guardado. Indique el asunto en una línea (hasta 200 caracteres).\n/cancel — cancelar el borrador",
+    "✉️ Brouillon #{id} enregistré. Indiquez l’objet sur une ligne (200 caractères maximum).\n/cancel — annuler le brouillon"
+  ],
+  "superadmin_broadcast_help": [
+    "📝 Отправьте текст объявления, затем тему письма. Проверьте предпросмотр и нажмите «Разослать».\n/draft ID — открыть черновик\n/retry ID — повторить ошибки рассылки\n/cancel — отменить ввод\n/help — помощь",
+    "📝 Send the announcement text, then the email subject. Check the preview and press Send broadcast.\n/draft ID — open a draft\n/retry ID — retry failed deliveries\n/cancel — cancel input\n/help — help",
+    "📝 Envíe el texto del anuncio y después el asunto. Revise la vista previa y pulse Enviar anuncio.\n/draft ID — abrir un borrador\n/retry ID — reintentar entregas fallidas\n/cancel — cancelar\n/help — ayuda",
+    "📝 Envoyez le texte de l’annonce, puis l’objet. Vérifiez l’aperçu et appuyez sur Diffuser.\n/draft ID — ouvrir un brouillon\n/retry ID — réessayer les envois échoués\n/cancel — annuler la saisie\n/help — aide"
+  ],
+  "draft_returned": [
+    "✏️ Суперадминистратор отправил ваше объявление на доработку.\n\n{comment}",
+    "✏️ The superadmin returned your announcement for revision.\n\n{comment}",
+    "✏️ El superadministrador devolvió su anuncio para revisión.\n\n{comment}",
+    "✏️ Le superadministrateur a renvoyé votre annonce pour modification.\n\n{comment}"
+  ],
+  "draft_return_sent": [
+    "Комментарий отправлен автору.",
+    "The comment was sent to the author.",
+    "El comentario se envió al autor.",
+    "Le commentaire a été envoyé à l’auteur."
+  ],
+  "draft_edit_text": [
+    "✏️ Изменить текст", "✏️ Edit text", "✏️ Editar texto", "✏️ Modifier le texte"
+  ],
+  "draft_edit_subject": [
+    "✏️ Изменить тему", "✏️ Edit subject", "✏️ Editar asunto", "✏️ Modifier l’objet"
+  ],
+  "draft_edit_prompt": [
+    "Скопируйте исходное содержимое ниже, вставьте в поле ввода, исправьте и отправьте. Для темы — одна строка до 200 символов. /cancel — отменить черновик.",
+    "Copy the original content below, paste it into the input field, edit and send it. Subjects must be one line of up to 200 characters. /cancel — cancel the draft.",
+    "Copie el contenido original de abajo, péguelo, corríjalo y envíelo. El asunto debe tener una línea de hasta 200 caracteres. /cancel — cancelar el borrador.",
+    "Copiez le contenu original ci-dessous, collez-le, modifiez-le et envoyez-le. L’objet doit tenir sur une ligne de 200 caractères maximum. /cancel — annuler le brouillon."
+  ],
+  "draft_edit_placeholder": [
+    "Вставьте и исправьте исходное содержимое", "Paste and edit the original content", "Pegue y edite el contenido original", "Collez et modifiez le contenu original"
+  ],
+  "inline_navigation": [
+    "Продолжите с помощью кнопок под следующим сообщением.",
+    "Continue using the buttons below the next message.",
+    "Continúa usando los botones debajo del siguiente mensaje.",
+    "Continuez avec les boutons sous le prochain message."
   ],
   "broadcast_approved_author": [
     "✅ Рассылка #{id} одобрена.",
@@ -60,10 +117,16 @@
     "Telegram : envoyés {done}, ignorés {skipped}, erreurs {failed}."
   ],
   "broadcast_report_email": [
-    "Email (принято SMTP): отправлено {done}, пропущено {skipped}, ошибки {failed}.",
-    "Email (accepted by SMTP): sent {done}, skipped {skipped}, errors {failed}.",
-    "Email (aceptado por SMTP): enviados {done}, omitidos {skipped}, errores {failed}.",
-    "Email (accepté par SMTP) : envoyés {done}, ignorés {skipped}, erreurs {failed}."
+    "Email (принято почтовым сервисом): отправлено {done}, пропущено {skipped}, ошибки {failed}.",
+    "Email (accepted by mail service): sent {done}, skipped {skipped}, errors {failed}.",
+    "Email (aceptado por el servicio de correo): enviados {done}, omitidos {skipped}, errores {failed}.",
+    "Email (accepté par le service de messagerie) : envoyés {done}, ignorés {skipped}, erreurs {failed}."
+  ],
+  "broadcast_report_team": [
+    "Канал команды (RU): опубликовано {done}, пропущено {skipped}, ошибки {failed}.",
+    "Team channel (RU): published {done}, skipped {skipped}, errors {failed}.",
+    "Canal del equipo (RU): publicados {done}, omitidos {skipped}, errores {failed}.",
+    "Canal de l’équipe (RU) : publiés {done}, ignorés {skipped}, erreurs {failed}."
   ],
   "draft_author": [
     "Автор: {author}",
@@ -300,9 +363,9 @@
     "🌍 Langue enregistrée pour les prochains messages Telegram et e-mails."
   ],
   "help": [
-    "/start — регистрация или статус заявки\n/language — смена языка\n/help — помощь\nБот отправляет объявления. Ответы на них не обрабатываются.",
-    "/start — register or check application status\n/language — change language\n/help — help\nThis bot sends announcements. Replies are not monitored.",
-    "/start — registro o estado de la solicitud\n/language — cambiar idioma\n/help — ayuda\nEste bot envía anuncios. No se atienden las respuestas.",
-    "/start — inscription ou état de la demande\n/language — changer de langue\n/help — aide\nCe bot diffuse des annonces. Les réponses ne sont pas traitées."
+    "Новости Imén Nails для зарегистрированных пользователей. Заполните анкету: после одобрения объявления будут приходить в Telegram и на email.\n\n/start — регистрация или статус заявки\n/language — смена языка\n/help — помощь\nОтветы на объявления не обрабатываются.",
+    "Imén Nails news for registered users. Complete your details: after approval, announcements will arrive in Telegram and by email.\n\n/start — register or check application status\n/language — change language\n/help — help\nReplies to announcements are not monitored.",
+    "Noticias de Imén Nails para usuarios registrados. Complete sus datos: tras la aprobación, recibirá anuncios en Telegram y por email.\n\n/start — registro o estado de la solicitud\n/language — cambiar idioma\n/help — ayuda\nNo se atienden las respuestas a los anuncios.",
+    "Actualités Imén Nails pour les utilisateurs inscrits. Complétez votre dossier : après validation, vous recevrez les annonces sur Telegram et par e-mail.\n\n/start — inscription ou état de la demande\n/language — changer de langue\n/help — aide\nLes réponses aux annonces ne sont pas traitées."
   ]
 }

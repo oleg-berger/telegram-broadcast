@@ -7,10 +7,11 @@ namespace Broadcast\Application;
 interface Store
 {
     public function transaction(callable $operation): mixed;
-    public function acceptUpdate(int $id): bool;
+    public function acceptUpdate(int $id, ?int $sourceDate = null): bool;
     public function user(int $id): ?array;
     public function saveUser(array $user): void;
     public function queueReply(int $chatId, string $text, array $options = []): void;
+    public function queuePhoto(int $chatId, string $caption): void;
     public function queueCallback(string $id): void;
     public function createBroadcast(int $adminId, string $text): array;
     public function broadcast(int $id): ?array;
@@ -20,14 +21,13 @@ interface Store
     public function applications(?int $id = null): array;
     public function decideApplication(int $id, int $revision, string $status, int $actor): bool;
     public function unsubscribeUser(int $id): bool;
-    public function resetTestUser(int $id): bool;
     public function session(int $actor): ?array;
     public function saveSession(int $actor, ?array $session): void;
     public function createDraft(int $admin, string $text): array;
     public function draft(int $id): ?array;
     public function saveDraft(int $id, int $version, array $changes): bool;
     public function approveDraft(int $id, int $version, int $actor): ?array;
-    public function queueComment(int $userId, string $language, string $text, string $prefix, int $staffId): void;
+    public function queueComment(int $userId, string $language, string $text, string $prefix, int $staffId, array $options = []): void;
     public function queueExport(int $chatId): void;
     public function exportUsers(): array;
     public function translation(int $broadcastId, string $language): ?string;

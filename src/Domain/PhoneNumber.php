@@ -20,8 +20,9 @@ final class PhoneNumber
             $util = PhoneNumberUtil::getInstance();
             $number = $util->parse($phone, null);
             $regions = $util->getRegionCodesForCountryCode($number->getCountryCode());
-            if (count($regions) !== 1 || $regions[0] === '001') { return null; }
-            return \Locale::getDisplayRegion('und_' . $regions[0], strtolower(substr($language, 0, 2)));
+            $region = count($regions) === 1 ? $regions[0] : $util->getRegionCodeForNumber($number);
+            if ($region === null || $region === '001' || $region === 'ZZ') { return null; }
+            return \Locale::getDisplayRegion('und_' . $region, strtolower(substr($language, 0, 2)));
         } catch (NumberParseException) {
             return null;
         }

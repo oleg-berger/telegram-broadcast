@@ -9,6 +9,7 @@ COPY composer.json composer.lock ./
 
 FROM base AS test
 RUN composer install --no-interaction --prefer-dist --no-progress
+COPY assets/ assets/
 COPY src/ src/
 COPY migrations/ migrations/
 COPY bin/ bin/
@@ -18,6 +19,7 @@ RUN composer test
 
 FROM base AS production
 RUN composer install --no-dev --no-interaction --prefer-dist --no-progress --optimize-autoloader
+COPY assets/ assets/
 COPY src/ src/
 COPY migrations/ migrations/
 COPY bin/ bin/

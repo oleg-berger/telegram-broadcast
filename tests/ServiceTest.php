@@ -113,6 +113,28 @@ final class ServiceTest extends TestCase
         }
     }
 
+    public function testHelpQueuesBrandedPhotoInEveryUserLanguage(): void
+    {
+        $this->say(5, '/help');
+        self::assertNull($this->store->user(5));
+        foreach (['RU', 'EN-GB', 'ES', 'FR'] as $i => $language) {
+            $id = $i + 1;
+            $this->say($id, '/start');
+            $this->click($id, 'language:' . $language);
+            $this->say($id, '/help');
+        }
+
+        [$telegram] = $this->drain();
+        self::assertCount(5, $telegram->photos);
+        self::assertSame([5, dirname(__DIR__) . '/assets/help-card.png', \Broadcast\Application\Messages::text('RU', 'help')], $telegram->photos[0]);
+        foreach (array_slice($telegram->photos, 1) as $i => [$id, $path, $caption]) {
+            self::assertSame($i + 1, $id);
+            self::assertSame('help-card.png', basename($path));
+            self::assertFileExists($path);
+            self::assertSame(\Broadcast\Application\Messages::text($this->store->user($id)['language'], 'help'), $caption);
+        }
+    }
+
     public function testForeignContactIsRejectedAndOwnContactAccepted(): void
     {
         $this->say(1, '/start');
@@ -219,6 +241,35 @@ final class ServiceTest extends TestCase
         self::assertNotEmpty($notifications);
     }
 
+    public function testChangesCommentHasEditButtonThatOpensExistingForm(): void
+    {
+        $this->register(1, 'EN-GB');
+        $this->click(100, 'app:changes:1:' . $this->store->user(1)['revision']);
+        $this->say(100, 'Incorrect email address.');
+        [$telegram] = $this->drain();
+        $index = array_search([1, "✏️ Please update your details and submit again.\n\nEN-GB:Incorrect email address."], $telegram->messages, true);
+        self::assertIsInt($index);
+        self::assertSame(['reply_markup' => ['inline_keyboard' => [[
+            ['text' => '✏️ Edit details', 'callback_data' => 'reg:edit'],
+        ]]]], $telegram->messageOptions[$index]);
+
+        $this->click(1, 'reg:edit');
+        [$telegram] = $this->drain();
+        self::assertContains([1, 'Which detail would you like to change?'], $telegram->messages);
+        $this->click(1, 'reg:field:email');
+        self::assertSame('email', $this->store->user(1)['step']);
+        $this->say(1, 'corrected@example.com');
+        $this->click(1, 'reg:submit');
+        self::assertSame('pending', $this->store->user(1)['status']);
+
+        $this->click(100, 'app:reject:1:' . $this->store->user(1)['revision']);
+        $this->say(100, 'Rejected application.');
+        [$telegram] = $this->drain();
+        $index = array_search([1, "Your application has been declined. An administrator must allow a new submission.\n\nEN-GB:Rejected application."], $telegram->messages, true);
+        self::assertIsInt($index);
+        self::assertSame([], $telegram->messageOptions[$index]);
+    }
+
     public function testRetryjobRerunsFailedCommentOnlyForOwner(): void
     {
         $this->store->queueComment(1, 'FR', 'Fix your phone.', 'Prefix', 100);
@@ -260,7 +311,7 @@ final class ServiceTest extends TestCase
         self::assertContains([1, 'RU:News'], $telegram->messages);
         self::assertContains(['user1@example.com', 'RU:Subject', 'RU:News'], $mailer->mails);
         self::assertSame([[99, 'Неуспешные задания поставлены на повтор.']], array_values(array_filter($telegram->messages, fn ($m) => $m[0] === 99)));
-        self::assertContains([100, "Рассылка #1:\nTelegram: отправлено 1, пропущено 0, ошибки 0.\nEmail (принято SMTP): отправлено 1, пропущено 0, ошибки 0."], $telegram->messages);
+        self::assertContains([100, "Рассылка #1:\nTelegram: отправлено 1, пропущено 0, ошибки 0.\nEmail (принято почтовым сервисом): отправлено 1, пропущено 0, ошибки 0."], $telegram->messages);
     }
 
     public static function broadcastReportScenarios(): iterable
@@ -280,7 +331,12 @@ final class ServiceTest extends TestCase
         $this->approve(1);
         $this->say($author, 'News');
         $this->say($author, 'Subject');
-        $this->click($author, 'draft:submit:1:' . $this->store->draft(1)['version']);
+        if ($author === 99) {
+            $this->click($author, 'draft:submit:1:' . $this->store->draft(1)['version']);
+        } else {
+            // Preserve coverage for superadmin drafts submitted before direct sending was introduced.
+            $this->store->transaction(fn () => $this->store->saveDraft(1, $this->store->draft(1)['version'], ['status' => 'pending']));
+        }
         $this->drain();
 
         $version = $this->store->draft(1)['version'];
@@ -293,7 +349,7 @@ final class ServiceTest extends TestCase
         [$telegram, , $mailer] = $this->drain(null, $translator);
         $done = $failedText === null ? 1 : 0;
         $failed = 1 - $done;
-        $report = "Рассылка #1:\nTelegram: отправлено $done, пропущено 0, ошибки $failed.\nEmail (принято SMTP): отправлено $done, пропущено 0, ошибки $failed.";
+        $report = "Рассылка #1:\nTelegram: отправлено $done, пропущено 0, ошибки $failed.\nEmail (принято почтовым сервисом): отправлено $done, пропущено 0, ошибки $failed.";
         $reports = array_values(array_filter($telegram->messages, fn ($m) => str_contains($m[1], 'Telegram:')));
         self::assertSame([[100, $report]], $reports);
         $failures = array_values(array_filter($telegram->messages, fn ($m) => str_contains($m[1], 'не удалось подготовить перевод')));
@@ -323,7 +379,7 @@ final class ServiceTest extends TestCase
         [$telegram] = $this->drain(null, null, $mailer);
         self::assertContains([1, 'RU:News'], $telegram->messages);
         self::assertCount(0, $mailer->mails);
-        self::assertContains([100, "Рассылка #1:\nTelegram: отправлено 1, пропущено 0, ошибки 0.\nEmail (принято SMTP): отправлено 0, пропущено 0, ошибки 1."], $telegram->messages);
+        self::assertContains([100, "Рассылка #1:\nTelegram: отправлено 1, пропущено 0, ошибки 0.\nEmail (принято почтовым сервисом): отправлено 0, пропущено 0, ошибки 1."], $telegram->messages);
         self::assertSame([], array_values(array_filter($telegram->messages, fn ($m) => $m[0] === 99 && str_contains($m[1], 'Telegram:'))));
         $this->say(99, '/retry 1');
         [, , $mailer] = $this->drain();
@@ -513,6 +569,8 @@ final class ServiceTest extends TestCase
 final class FakeTelegram implements TelegramGateway
 {
     public array $messages = [];
+    public array $photos = [];
+    public array $messageOptions = [];
     public array $documents = [];
     public ?int $blockedChat = null;
     public ?int $failingChat = null;
@@ -521,8 +579,10 @@ final class FakeTelegram implements TelegramGateway
         if ($chatId === $this->blockedChat) { throw new ApiFailure('blocked', blocked: true); }
         if ($chatId === $this->failingChat) { throw new ApiFailure('bad request'); }
         $this->messages[] = [$chatId, $text];
+        $this->messageOptions[] = $options;
     }
     public function getUpdates(int $offset, int $timeout = 25): array { return []; }
+    public function sendPhoto(int $chatId, string $path, string $caption): void { $this->photos[] = [$chatId, $path, $caption]; }
     public function answerCallbackQuery(string $id): void {}
     public function sendDocument(int $chatId, string $path, string $filename): void
     {
