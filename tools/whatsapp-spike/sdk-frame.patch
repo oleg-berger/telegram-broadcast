@@ -1,0 +1,11 @@
+--- a/vendor/go.mau.fi/whatsmeow/socket/framesocket.go
++++ b/vendor/go.mau.fi/whatsmeow/socket/framesocket.go
+@@ -153,7 +153,7 @@
+ 	wholeFrame[headerLength+2] = byte(dataLength)
+ 
+ 	// Copy actual frame data
+-	copy(wholeFrame[headerLength+FrameLengthSize:], data)
++	wholeFrame = append(wholeFrame, data...)
+ 
+ 	return conn.Write(fs.cancelCtx, websocket.MessageBinary, wholeFrame)
+ }

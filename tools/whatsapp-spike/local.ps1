@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('prepare', 'start', 'status', 'pair', 'qr', 'stats', 'stop')]
+    [ValidateSet('prepare', 'build', 'start', 'status', 'pair', 'qr', 'stats', 'stop')]
     [string] $Action
 )
 
@@ -13,6 +13,7 @@ $taskTokenFile = Join-Path $taskSecrets 'session-token.json'
 $taskCompose = Join-Path $PSScriptRoot 'compose.yaml'
 $taskSession = 'whatsapp-test'
 $taskBase = 'http://127.0.0.1:21465'
+$taskFailureCode = 'unexpected_error'
 
 function Invoke-SpikeCompose {
     param([string[]] $Arguments)
@@ -87,9 +88,13 @@ try {
         throw 'Run prepare first.'
     }
     switch ($Action) {
+        'build' {
+            Invoke-SpikeCompose -Arguments @('build')
+            Write-Output 'local_transport_built'
+        }
         'start' {
             Invoke-SpikeCompose -Arguments @('config', '--quiet')
-            Invoke-SpikeCompose -Arguments @('up', '-d', '--wait', '--wait-timeout', '60')
+            Invoke-SpikeCompose -Arguments @('up', '-d', '--no-build', '--pull', 'never', '--wait', '--wait-timeout', '60')
             Write-Output 'local_transport_started'
         }
         'pair' {
@@ -114,10 +119,30 @@ try {
             }
         }
         'qr' {
+            $headers = Get-SpikeHeaders
+            $deadline = [DateTime]::UtcNow.AddSeconds(30)
+            do {
+                $state = Invoke-RestMethod -Uri "$taskBase/api/$taskSession/status-session" -Headers $headers -TimeoutSec 10 -MaximumRedirection 0
+                if ($state.status -ceq 'CONNECTED') {
+                    Write-SpikeStatus $state
+                    exit 0
+                }
+                if ($state.status -ceq 'QRCODE') { break }
+                if ($state.status -cne 'INITIALIZING') {
+                    $taskFailureCode = 'session_not_pairing'
+                    throw 'The session is not pairing.'
+                }
+                Start-Sleep -Milliseconds 500
+            } while ([DateTime]::UtcNow -lt $deadline)
+            if ($state.status -cne 'QRCODE') {
+                $taskFailureCode = 'qr_wait_timeout'
+                throw 'Timed out waiting for QR.'
+            }
             $temporary = Join-Path $taskRuntime ('qr-' + [Guid]::NewGuid().ToString('N') + '.tmp')
             try {
-                $response = Invoke-WebRequest -UseBasicParsing -Uri "$taskBase/api/$taskSession/qrcode-session" -Headers (Get-SpikeHeaders) -TimeoutSec 10 -MaximumRedirection 0
+                $response = Invoke-WebRequest -UseBasicParsing -Uri "$taskBase/api/$taskSession/qrcode-session" -Headers $headers -TimeoutSec 10 -MaximumRedirection 0
                 if ($response.Headers['Content-Type'] -notlike 'image/png*') {
+                    $taskFailureCode = 'qr_not_available'
                     throw 'QR is not available. Check status or run pair again.'
                 }
                 # OutFile + PassThru produces empty files on Windows PowerShell 5.1.
@@ -125,6 +150,7 @@ try {
                 $stream.Position = 0
                 $signature = New-Object byte[] 8
                 if ($stream.Read($signature, 0, 8) -ne 8 -or [BitConverter]::ToString($signature) -cne '89-50-4E-47-0D-0A-1A-0A') {
+                    $taskFailureCode = 'invalid_qr_image'
                     throw 'Invalid QR image.'
                 }
                 $stream.Position = 0
@@ -143,6 +169,6 @@ try {
     }
 } catch {
     # Exceptions from HTTP tools may contain credentials, URLs or remote bodies.
-    Write-Output ('local_spike_failed; action=' + $Action + '; exception=' + $_.Exception.GetType().Name)
+    Write-Output ('local_spike_failed; action=' + $Action + '; reason=' + $taskFailureCode + '; exception=' + $_.Exception.GetType().Name)
     exit 1
 }

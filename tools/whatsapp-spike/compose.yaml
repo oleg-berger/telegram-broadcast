@@ -2,8 +2,10 @@ name: broadcast-whatsapp-spike
 
 services:
   transport:
-    # v0.1.10: cf1098f91c1a1e2028e5d864490f45c72f6b8358.
-    image: wppconnect/wppconnect-server-go:v0.1.10@sha256:094427e6ec4ac13c76ff2b67de4001e4d9009aa20f27c559b144d618e5473d2f
+    # The Dockerfile pins the HTTP server and the updated WhatsApp client.
+    image: broadcast-whatsapp-transport:cf1098f-9d2171c
+    build:
+      context: .
     env_file:
       - ../../secrets/whatsapp-spike/transport.env
     environment:

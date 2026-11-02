@@ -1,0 +1,4 @@
+Dockerfile text eol=lf
+# Unified diff context lines require a leading space, including before Go tabs.
+*.patch text eol=lf whitespace=-blank-at-eol,-space-before-tab
+*.go text eol=lf
