@@ -1,0 +1,37 @@
+name: broadcast-whatsapp-spike
+
+services:
+  transport:
+    # v0.1.10: cf1098f91c1a1e2028e5d864490f45c72f6b8358.
+    image: wppconnect/wppconnect-server-go:v0.1.10@sha256:094427e6ec4ac13c76ff2b67de4001e4d9009aa20f27c559b144d618e5473d2f
+    env_file:
+      - ../../secrets/whatsapp-spike/transport.env
+    environment:
+      PORT: "21465"
+      DATA_DIR: /data
+      AUTO_RESTORE_SESSIONS: "true"
+      ENABLE_MANAGER: "false"
+      ENABLE_EXPERIMENTAL_INTERACTIVES: "false"
+      WEBHOOK_URL: ""
+      NATS_URL: ""
+      AMQP_URL: ""
+      S3_ENDPOINT: ""
+    ports:
+      - "127.0.0.1:21465:21465"
+    volumes:
+      - ../../var/whatsapp-spike/data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    cpus: 1.0
+    mem_limit: 512m
+    pids_limit: 128
+    restart: "no"
+    stop_grace_period: 35s
+    # Upstream creates an INFO-level SDK logger without a configurable redactor.
+    logging:
+      driver: none
