@@ -19,6 +19,9 @@ use Broadcast\Infrastructure\Runtime\Poller;
 use Broadcast\Infrastructure\Runtime\ProcessLock;
 use Broadcast\Infrastructure\Runtime\SqliteBackup;
 use Broadcast\Infrastructure\Runtime\StopSignal;
+use Broadcast\Infrastructure\Runtime\WhatsAppPoller;
+use Broadcast\Infrastructure\WhatsApp\WppConnectClient;
+use Broadcast\Domain\WhatsAppFailure;
 use Broadcast\Infrastructure\SqliteStore;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
@@ -35,10 +38,10 @@ $log = new Log();
 try {
     $command = $argv[1] ?? 'help';
     if ($command === 'help') {
-        echo "Commands:\n  poll [--once]\n  worker [--once]\n  check\n  commands\n  migrate\n  backup\n  reset-data [--confirm]\n  restore BACKUP_FILE --confirm\n";
+        echo "Commands:\n  poll [--once]\n  whatsapp-poll [--once]\n  worker [--once]\n  check\n  commands\n  migrate\n  backup\n  reset-data [--confirm]\n  restore BACKUP_FILE --confirm\n";
         exit(0);
     }
-    if (!in_array($command, ['poll', 'worker', 'migrate', 'backup', 'restore', 'reset-data', 'check', 'commands'], true)) {
+    if (!in_array($command, ['poll', 'whatsapp-poll', 'worker', 'migrate', 'backup', 'restore', 'reset-data', 'check', 'commands'], true)) {
         throw new InvalidArgumentException('Unknown command.');
     }
     $path = getenv('DATABASE_PATH');
@@ -62,6 +65,7 @@ try {
         // Maintenance refuses to run while either process is active.
         $locks[] = ProcessLock::acquire($runtimeDirectory, 'poll');
         $locks[] = ProcessLock::acquire($runtimeDirectory, 'worker');
+        $locks[] = ProcessLock::acquire($runtimeDirectory, 'whatsapp-poll');
         if ($command === 'restore') {
             if (!isset($argv[2]) || !in_array('--confirm', $argv, true)) {
                 throw new InvalidArgumentException('Restore requires a backup path and --confirm.');
@@ -73,6 +77,10 @@ try {
             }
             (new SqliteBackup())->restore($argv[2], $path);
         } else {
+            if (is_file($path)) {
+                $locks[] = ProcessLock::acquire($runtimeDirectory, 'backup');
+                (new SqliteBackup())->create($path, $backupDirectory . '/before-migrate');
+            }
             (new SqliteStore($path))->migrate();
         }
         $log->event($command . '_complete');
@@ -91,14 +99,19 @@ try {
     if ($command === 'commands') { (new CommandMenu())->install($telegram, $config); $log->event('commands_updated'); exit(0); }
     $locks[] = ProcessLock::acquire($runtimeDirectory, $command);
     $store = new SqliteStore($path, $config->teamChannelId);
-    $store->migrate();
-    $poller = new Poller($store, $telegram, new Kernel($store, $config->adminIds, $config->superadminIds, $config->adminsCanApproveUsers, $config->adminsCanExportUsers));
+    // Schema changes belong to explicit maintenance under all process locks.
+    $kernel = new Kernel($store, $config->adminIds, $config->superadminIds, $config->adminsCanApproveUsers, $config->adminsCanExportUsers);
+    $poller = new Poller($store, $telegram, $kernel);
+    $whatsapp = $config->whatsapp === [] ? null : new WppConnectClient(...$config->whatsapp);
+    if ($command === 'whatsapp-poll' && $whatsapp === null) { throw new InvalidArgumentException('WhatsApp is disabled.'); }
+    $whatsappPoller = $whatsapp === null ? null : new WhatsAppPoller($store, $whatsapp, $kernel, $config->whatsapp['allowedRecipients']);
     $worker = new Worker($store, $telegram, new DeepLTranslator($config->translatorApiKey, $config->translatorApiUrl),
         static function (array $event) use ($log): void {
             $name = $event['event'];
             unset($event['event']);
             $log->event($name, $event);
-        }, $config->mailTransport === 'gmail' ? new GmailApiMailer(...$config->gmail) : new SmtpMailer(...$config->smtp), new XlsxUsers(), $config->mailSendIntervalSeconds);
+        }, $config->mailTransport === 'gmail' ? new GmailApiMailer(...$config->gmail) : new SmtpMailer(...$config->smtp), new XlsxUsers(), $config->mailSendIntervalSeconds,
+        $whatsapp, $config->superadminIds);
     $dailyBackup = new DailyBackup($path, $backupDirectory, $runtimeDirectory);
     $stop = new StopSignal();
     $once = in_array('--once', $argv, true);
@@ -108,18 +121,25 @@ try {
             if ($command === 'poll') {
                 $count = $poller->once($once ? 0 : 25);
                 if ($count > 0) { $log->event('updates_processed', ['count' => $count]); }
+            } elseif ($command === 'whatsapp-poll') {
+                $count = $whatsappPoller->once();
+                if ($count > 0) { $log->event('whatsapp_events_processed', ['count' => $count]); }
             } else {
                 try {
                     if ($dailyBackup->runIfDue()) { $log->event('daily_backup_complete'); }
                 } catch (Throwable $failure) { $log->failure('backup_failed', $failure); }
                 $worker->tick();
             }
+        } catch (WhatsAppFailure $failure) {
+            if ($once || $failure->category === 'permanent') { throw $failure; }
+            $log->failure('whatsapp_poll_deferred', $failure);
+            $stop->pause(max(5, $failure->retryAfter ?? 0));
         } catch (ApiFailure $failure) {
             if (!$failure->transient || $once) { throw $failure; }
             $log->failure('poll_deferred', $failure);
             $stop->pause(max(5, $failure->retryAfter ?? 0));
         }
-        if (!$once) { $stop->pause($command === 'worker' ? 1.1 : 0.1); }
+        if (!$once) { $stop->pause($command === 'poll' ? 0.1 : 1.1); }
     } while (!$once && !$stop->requested);
     $log->event('process_stopped', ['role' => $command]);
 } catch (Throwable $failure) {

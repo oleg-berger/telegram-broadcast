@@ -18,7 +18,7 @@ final class XlsxUsers implements UserExporter
     {
         $path = tempnam(sys_get_temp_dir(), 'bot-users-');
         $options = new Options();
-        $options->setColumnWidth(24, 1, 2, 3, 4, 5, 7, 8, 9, 10);
+        $options->setColumnWidth(24, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13);
         $options->setColumnWidth(36, 6);
         $writer = new Writer($options);
         try {
@@ -26,11 +26,11 @@ final class XlsxUsers implements UserExporter
             $sheet = $writer->getCurrentSheet();
             $sheet->setName('Пользователи');
             $sheet->setSheetView((new SheetView())->setFreezeRow(2));
-            $sheet->setAutoFilter(new AutoFilter(0, 1, 9, count($users) + 1));
+            $sheet->setAutoFilter(new AutoFilter(0, 1, 12, count($users) + 1));
             $style = (new Style())->setFontBold()->setBackgroundColor('DCEEF0');
-            $writer->addRow(Row::fromValues(['Telegram ID', 'Имя', 'Страна', 'Организация', 'Телефон', 'Email', 'Язык', 'Статус', 'Дата подачи (UTC)', 'Дата одобрения (UTC)'], $style));
+            $writer->addRow(Row::fromValues(['ID пользователя', 'Имя', 'Страна', 'Организация', 'Телефон', 'Email', 'Язык', 'Статус', 'Дата подачи (UTC)', 'Дата одобрения (UTC)', 'Telegram ID', 'WhatsApp ID', 'Подтверждённый номер WhatsApp'], $style));
             foreach ($users as $user) {
-                $values = [$user['id'], $user['name'], $user['country'], $user['company'], $user['phone'], $user['email'], $user['language'], $user['status'], $user['submitted_at'] ? gmdate('Y-m-d H:i:s', $user['submitted_at']) : '', $user['approved_at'] ? gmdate('Y-m-d H:i:s', $user['approved_at']) : ''];
+                $values = [$user['id'], $user['name'], $user['country'], $user['company'], $user['phone'], $user['email'], $user['language'], $user['status'], $user['submitted_at'] ? gmdate('Y-m-d H:i:s', $user['submitted_at']) : '', $user['approved_at'] ? gmdate('Y-m-d H:i:s', $user['approved_at']) : '', $user['telegram_id'] ?? '', $user['whatsapp_id'] ?? '', $user['whatsapp_verified_phone'] ?? ''];
                 $writer->addRow(new Row(array_map(static fn ($value) => new StringCell((string) $value, null), $values)));
             }
             $writer->close();

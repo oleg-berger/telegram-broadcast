@@ -14,6 +14,7 @@ COPY src/ src/
 COPY migrations/ migrations/
 COPY bin/ bin/
 COPY tests/ tests/
+COPY tools/whatsapp/LocalStand.php tools/whatsapp/LocalStand.php
 COPY phpunit.xml ./
 RUN composer test
 

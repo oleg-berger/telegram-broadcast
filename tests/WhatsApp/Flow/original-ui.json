@@ -1,0 +1,371 @@
+{
+  "draft_send": [
+    "📨 Разослать", "📨 Send broadcast", "📨 Enviar anuncio", "📨 Diffuser"
+  ],
+  "draft_submit": [
+    "📨 На согласование", "📨 Submit for approval", "📨 Enviar para aprobación", "📨 Soumettre pour approbation"
+  ],
+  "draft_approve": [
+    "✅ Одобрить и разослать", "✅ Approve and send", "✅ Aprobar y enviar", "✅ Approuver et diffuser"
+  ],
+  "draft_return": [
+    "✏️ Вернуть на доработку", "✏️ Return for revision", "✏️ Devolver para revisión", "✏️ Renvoyer pour modification"
+  ],
+  "draft_cancel": [
+    "Отменить черновик", "Cancel draft", "Cancelar borrador", "Annuler le brouillon"
+  ],
+  "draft_subject_label": [
+    "Тема:", "Subject:", "Asunto:", "Objet :"
+  ],
+  "draft_send_prompt": [
+    "Разослать пользователям или отредактировать?", "Send to users or edit?", "¿Enviar a los usuarios o editar?", "Diffuser aux utilisateurs ou modifier ?"
+  ],
+  "draft_preview_header": [
+    "Объявление #{id} · {status}", "Announcement #{id} · {status}", "Anuncio #{id} · {status}", "Annonce #{id} · {status}"
+  ],
+  "broadcast_started": [
+    "✅ Рассылка #{id} запущена. Получателей: {recipients}. Готовим переводы.",
+    "✅ Broadcast #{id} started. Recipients: {recipients}. Preparing translations.",
+    "✅ Anuncio #{id} iniciado. Destinatarios: {recipients}. Preparando traducciones.",
+    "✅ Diffusion #{id} lancée. Destinataires : {recipients}. Préparation des traductions."
+  ],
+  "draft_send_denied": [
+    "Прямая отправка доступна только суперадминистратору. Отправьте черновик на согласование.",
+    "Only superadmins can send directly. Submit the draft for approval.",
+    "Solo los superadministradores pueden enviar directamente. Envíe el borrador para aprobación.",
+    "Seuls les superadministrateurs peuvent diffuser directement. Soumettez le brouillon pour approbation."
+  ],
+  "draft_subject_required": [
+    "Сначала укажите тему письма.", "Enter the email subject first.", "Primero indique el asunto del correo.", "Indiquez d’abord l’objet du courriel."
+  ],
+  "draft_subject_invalid": [
+    "Укажите тему одной строкой, до 200 символов.", "Enter a subject on one line, up to 200 characters.", "Indique el asunto en una línea de hasta 200 caracteres.", "Indiquez l’objet sur une ligne de 200 caractères maximum."
+  ],
+  "draft_subject_prompt": [
+    "✉️ Черновик #{id} сохранён. Введите тему письма одной строкой (до 200 символов).\n/cancel — отменить черновик",
+    "✉️ Draft #{id} saved. Enter the email subject on one line (up to 200 characters).\n/cancel — cancel the draft",
+    "✉️ Borrador #{id} guardado. Indique el asunto en una línea (hasta 200 caracteres).\n/cancel — cancelar el borrador",
+    "✉️ Brouillon #{id} enregistré. Indiquez l’objet sur une ligne (200 caractères maximum).\n/cancel — annuler le brouillon"
+  ],
+  "superadmin_broadcast_help": [
+    "📝 Отправьте текст объявления, затем тему письма. Проверьте предпросмотр и нажмите «Разослать».\n/draft ID — открыть черновик\n/retry ID — повторить ошибки рассылки\n/cancel — отменить ввод\n/help — помощь",
+    "📝 Send the announcement text, then the email subject. Check the preview and press Send broadcast.\n/draft ID — open a draft\n/retry ID — retry failed deliveries\n/cancel — cancel input\n/help — help",
+    "📝 Envíe el texto del anuncio y después el asunto. Revise la vista previa y pulse Enviar anuncio.\n/draft ID — abrir un borrador\n/retry ID — reintentar entregas fallidas\n/cancel — cancelar\n/help — ayuda",
+    "📝 Envoyez le texte de l’annonce, puis l’objet. Vérifiez l’aperçu et appuyez sur Diffuser.\n/draft ID — ouvrir un brouillon\n/retry ID — réessayer les envois échoués\n/cancel — annuler la saisie\n/help — aide"
+  ],
+  "draft_returned": [
+    "✏️ Суперадминистратор отправил ваше объявление на доработку.\n\n{comment}",
+    "✏️ The superadmin returned your announcement for revision.\n\n{comment}",
+    "✏️ El superadministrador devolvió su anuncio para revisión.\n\n{comment}",
+    "✏️ Le superadministrateur a renvoyé votre annonce pour modification.\n\n{comment}"
+  ],
+  "draft_return_sent": [
+    "Комментарий отправлен автору.",
+    "The comment was sent to the author.",
+    "El comentario se envió al autor.",
+    "Le commentaire a été envoyé à l’auteur."
+  ],
+  "draft_edit_text": [
+    "✏️ Изменить текст", "✏️ Edit text", "✏️ Editar texto", "✏️ Modifier le texte"
+  ],
+  "draft_edit_subject": [
+    "✏️ Изменить тему", "✏️ Edit subject", "✏️ Editar asunto", "✏️ Modifier l’objet"
+  ],
+  "draft_edit_prompt": [
+    "Скопируйте исходное содержимое ниже, вставьте в поле ввода, исправьте и отправьте. Для темы — одна строка до 200 символов. /cancel — отменить черновик.",
+    "Copy the original content below, paste it into the input field, edit and send it. Subjects must be one line of up to 200 characters. /cancel — cancel the draft.",
+    "Copie el contenido original de abajo, péguelo, corríjalo y envíelo. El asunto debe tener una línea de hasta 200 caracteres. /cancel — cancelar el borrador.",
+    "Copiez le contenu original ci-dessous, collez-le, modifiez-le et envoyez-le. L’objet doit tenir sur une ligne de 200 caractères maximum. /cancel — annuler le brouillon."
+  ],
+  "draft_edit_placeholder": [
+    "Вставьте и исправьте исходное содержимое", "Paste and edit the original content", "Pegue y edite el contenido original", "Collez et modifiez le contenu original"
+  ],
+  "inline_navigation": [
+    "Продолжите с помощью кнопок под следующим сообщением.",
+    "Continue using the buttons below the next message.",
+    "Continúa usando los botones debajo del siguiente mensaje.",
+    "Continuez avec les boutons sous le prochain message."
+  ],
+  "broadcast_approved_author": [
+    "✅ Рассылка #{id} одобрена.",
+    "✅ Broadcast #{id} approved.",
+    "✅ Difusión #{id} aprobada.",
+    "✅ Diffusion nº {id} approuvée."
+  ],
+  "broadcast_approved_staff": [
+    "✅ Рассылка #{id} одобрена. Получателей: {recipients}. Готовим переводы.",
+    "✅ Broadcast #{id} approved. Recipients: {recipients}. Preparing translations.",
+    "✅ Difusión #{id} aprobada. Destinatarios: {recipients}. Preparando traducciones.",
+    "✅ Diffusion nº {id} approuvée. Destinataires : {recipients}. Préparation des traductions."
+  ],
+  "broadcast_translation_failed": [
+    "Рассылка #{id}: не удалось подготовить перевод {language}. Проверьте доступ и квоту переводчика. /retry {id}",
+    "Broadcast #{id}: could not prepare the {language} translation. Check translator access and quota. /retry {id}",
+    "Difusión #{id}: no se pudo preparar la traducción a {language}. Revise el acceso y la cuota del traductor. /retry {id}",
+    "Diffusion nº {id} : impossible de préparer la traduction en {language}. Vérifiez l’accès et le quota du traducteur. /retry {id}"
+  ],
+  "broadcast_report": [
+    "Рассылка #{id}:",
+    "Broadcast #{id}:",
+    "Difusión #{id}:",
+    "Diffusion nº {id} :"
+  ],
+  "broadcast_report_telegram": [
+    "Telegram: отправлено {done}, пропущено {skipped}, ошибки {failed}.",
+    "Telegram: sent {done}, skipped {skipped}, errors {failed}.",
+    "Telegram: enviados {done}, omitidos {skipped}, errores {failed}.",
+    "Telegram : envoyés {done}, ignorés {skipped}, erreurs {failed}."
+  ],
+  "broadcast_report_email": [
+    "Email (принято почтовым сервисом): отправлено {done}, пропущено {skipped}, ошибки {failed}.",
+    "Email (accepted by mail service): sent {done}, skipped {skipped}, errors {failed}.",
+    "Email (aceptado por el servicio de correo): enviados {done}, omitidos {skipped}, errores {failed}.",
+    "Email (accepté par le service de messagerie) : envoyés {done}, ignorés {skipped}, erreurs {failed}."
+  ],
+  "broadcast_report_team": [
+    "Канал команды (RU): опубликовано {done}, пропущено {skipped}, ошибки {failed}.",
+    "Team channel (RU): published {done}, skipped {skipped}, errors {failed}.",
+    "Canal del equipo (RU): publicados {done}, omitidos {skipped}, errores {failed}.",
+    "Canal de l’équipe (RU) : publiés {done}, ignorés {skipped}, erreurs {failed}."
+  ],
+  "draft_author": [
+    "Автор: {author}",
+    "Author: {author}",
+    "Autor: {author}",
+    "Auteur : {author}"
+  ],
+  "intro": [
+    "👋 Добро пожаловать! Спасибо, что присоединились к нам.",
+    "👋 Welcome! Thank you for joining us.",
+    "👋 ¡Bienvenido! Gracias por acompañarnos.",
+    "👋 Bienvenue ! Merci de nous rejoindre."
+  ],
+  "language": [
+    "🌍 Выберите удобный язык общения.",
+    "🌍 Choose your preferred language.",
+    "🌍 Elija su idioma preferido.",
+    "🌍 Choisissez votre langue préférée."
+  ],
+  "begin": [
+    "Давайте познакомимся 😊\nПройдите 5 простых шагов регистрации. После одобрения заявки вы сможете получать важные новости в Telegram и на электронную почту.",
+    "Let’s get acquainted 😊\nComplete 5 simple registration steps. Once approved, you will receive important news on Telegram and by email.",
+    "Conozcámonos 😊\nComplete 5 sencillos pasos. Tras la aprobación, recibirá novedades por Telegram y correo electrónico.",
+    "Faisons connaissance 😊\nSuivez 5 étapes simples. Après approbation, vous recevrez les informations importantes sur Telegram et par e-mail."
+  ],
+  "begin_button": [
+    "🚀 Начать регистрацию",
+    "🚀 Register",
+    "🚀 Registrarse",
+    "🚀 Commencer"
+  ],
+  "name": [
+    "👤 Шаг 1 из 5. Как вас зовут?\nПожалуйста, укажите имя и фамилию.",
+    "👤 Step 1 of 5. Please enter your first and last name.",
+    "👤 Paso 1 de 5. Indique su nombre y apellidos.",
+    "👤 Étape 1 sur 5. Indiquez votre prénom et votre nom."
+  ],
+  "company": [
+    "🤝 Приятно познакомиться!\nШаг 2 из 5. Как называется ваша организация?",
+    "🤝 Nice to meet you!\nStep 2 of 5. What is your organisation called?",
+    "🤝 ¡Mucho gusto!\nPaso 2 de 5. ¿Cómo se llama su organización?",
+    "🤝 Enchantés !\nÉtape 2 sur 5. Quel est le nom de votre organisation ?"
+  ],
+  "phone": [
+    "📱 Шаг 3 из 5. Поделитесь своим номером или введите его с кодом страны, например +44 7700 900123.",
+    "📱 Step 3 of 5. Share your own number or enter it with a country code, e.g. +44 7700 900123.",
+    "📱 Paso 3 de 5. Comparta su número con el prefijo internacional, por ejemplo +44 7700 900123.",
+    "📱 Étape 3 sur 5. Partagez votre numéro avec l’indicatif, par exemple +44 7700 900123."
+  ],
+  "contact": [
+    "📱 Поделиться моим номером",
+    "📱 Share my number",
+    "📱 Compartir mi número",
+    "📱 Partager mon numéro"
+  ],
+  "country": [
+    "🌍 Шаг 4 из 5. В какой стране вы работаете?",
+    "🌍 Step 4 of 5. Which country do you work in?",
+    "🌍 Paso 4 de 5. ¿En qué país trabaja?",
+    "🌍 Étape 4 sur 5. Dans quel pays travaillez-vous ?"
+  ],
+  "country_confirm": [
+    "🌍 Шаг 4 из 5. По коду телефона предполагаем, что ваша страна — {country}. Верно?",
+    "🌍 Step 4 of 5. Your phone code suggests {country}. Is that correct?",
+    "🌍 Paso 4 de 5. Su prefijo indica {country}. ¿Es correcto?",
+    "🌍 Étape 4 sur 5. Votre indicatif suggère {country}. Est-ce exact ?"
+  ],
+  "yes": [
+    "✅ Да, верно",
+    "✅ Yes, correct",
+    "✅ Sí, correcto",
+    "✅ Oui, exact"
+  ],
+  "other_country": [
+    "🌍 Другая страна",
+    "🌍 Another country",
+    "🌍 Otro país",
+    "🌍 Autre pays"
+  ],
+  "email": [
+    "✉️ Шаг 5 из 5. Укажите вашу электронную почту.\nНа неё будут приходить копии важных объявлений.",
+    "✉️ Step 5 of 5. Enter your email address to receive copies of important announcements.",
+    "✉️ Paso 5 de 5. Indique su correo para recibir copias de los anuncios importantes.",
+    "✉️ Étape 5 sur 5. Indiquez votre e-mail pour recevoir une copie des annonces importantes."
+  ],
+  "invalid": [
+    "Пожалуйста, заполните поле (не более 200 символов) 😊",
+    "Please complete this field (up to 200 characters) 😊",
+    "Complete este campo (hasta 200 caracteres), por favor 😊",
+    "Veuillez remplir ce champ (200 caractères maximum) 😊"
+  ],
+  "invalid_phone": [
+    "Не удалось распознать номер. Укажите ваш номер с кодом страны, начиная с «+» 😊",
+    "Please enter your number with a country code starting with “+” 😊",
+    "Indique su número con el prefijo internacional, empezando por «+» 😊",
+    "Indiquez votre numéro avec l’indicatif commençant par «+» 😊"
+  ],
+  "own_contact": [
+    "Пожалуйста, отправьте свой контакт кнопкой ниже или введите свой номер вручную.",
+    "Please share your own contact using the button or enter your number.",
+    "Comparta su propio contacto con el botón o escriba su número.",
+    "Partagez votre propre contact avec le bouton ou saisissez votre numéro."
+  ],
+  "duplicate_phone": [
+    "Этот номер уже используется для регистрации. Укажите другой ваш номер. Если вы регистрировались ранее, воспользуйтесь прежним Telegram-аккаунтом.",
+    "This number is already registered. Enter another number you own or use your previous Telegram account.",
+    "Este número ya está registrado. Indique otro número suyo o utilice su cuenta anterior de Telegram.",
+    "Ce numéro est déjà enregistré. Indiquez un autre de vos numéros ou utilisez votre ancien compte Telegram."
+  ],
+  "duplicate_email": [
+    "Этот адрес уже используется для регистрации. Укажите другой ваш email. Если вы регистрировались ранее, воспользуйтесь прежним Telegram-аккаунтом.",
+    "This email is already registered. Enter another address you own or use your previous Telegram account.",
+    "Este correo ya está registrado. Indique otro correo suyo o utilice su cuenta anterior de Telegram.",
+    "Cette adresse est déjà enregistrée. Indiquez une autre de vos adresses ou utilisez votre ancien compte Telegram."
+  ],
+  "invalid_email": [
+    "✉️ Не удалось распознать адрес электронной почты. Укажите его в формате name@example.com.",
+    "✉️ Please enter an email address in the format name@example.com.",
+    "✉️ Indique un correo con el formato name@example.com.",
+    "✉️ Indiquez une adresse au format name@example.com."
+  ],
+  "review": [
+    "📋 Всё готово! Проверьте ваши данные:\n\n👤 Имя: {name}\n🏢 Организация: {company}\n📱 Телефон: {phone}\n🌍 Страна: {country}\n✉️ Email: {email}\n💬 Язык: {language}\n\nПосле одобрения важные объявления будут приходить в Telegram и на почту.",
+    "📋 Please check your details:\n\n👤 Name: {name}\n🏢 Organisation: {company}\n📱 Phone: {phone}\n🌍 Country: {country}\n✉️ Email: {email}\n💬 Language: {language}\n\nOnce approved, you will receive announcements on Telegram and by email.",
+    "📋 Compruebe sus datos:\n\n👤 Nombre: {name}\n🏢 Organización: {company}\n📱 Teléfono: {phone}\n🌍 País: {country}\n✉️ Email: {email}\n💬 Idioma: {language}\n\nTras la aprobación, recibirá anuncios por Telegram y correo.",
+    "📋 Vérifiez vos informations :\n\n👤 Nom : {name}\n🏢 Organisation : {company}\n📱 Téléphone : {phone}\n🌍 Pays : {country}\n✉️ E-mail : {email}\n💬 Langue : {language}\n\nAprès approbation, vous recevrez les annonces sur Telegram et par e-mail."
+  ],
+  "submit": [
+    "✅ Отправить заявку",
+    "✅ Submit application",
+    "✅ Enviar solicitud",
+    "✅ Envoyer la demande"
+  ],
+  "edit": [
+    "✏️ Исправить данные",
+    "✏️ Edit details",
+    "✏️ Corregir datos",
+    "✏️ Corriger les informations"
+  ],
+  "back": [
+    "⬅️ Назад",
+    "⬅️ Back",
+    "⬅️ Atrás",
+    "⬅️ Retour"
+  ],
+  "choose_field": [
+    "Что хотите исправить?",
+    "Which detail would you like to change?",
+    "¿Qué dato desea corregir?",
+    "Quelle information souhaitez-vous corriger ?"
+  ],
+  "field_name": [
+    "Имя",
+    "Name",
+    "Nombre",
+    "Nom"
+  ],
+  "field_company": [
+    "Организация",
+    "Organisation",
+    "Organización",
+    "Organisation"
+  ],
+  "field_phone": [
+    "Телефон",
+    "Phone",
+    "Teléfono",
+    "Téléphone"
+  ],
+  "field_country": [
+    "Страна",
+    "Country",
+    "País",
+    "Pays"
+  ],
+  "field_email": [
+    "Email",
+    "Email",
+    "Correo",
+    "E-mail"
+  ],
+  "submitted": [
+    "✅ Спасибо! Ваша заявка отправлена на рассмотрение.\nКогда администратор одобрит её, мы сообщим вам здесь и отправим последнее опубликованное объявление в Telegram и на почту.\nПока ничего делать не нужно 😊",
+    "✅ Thank you! Your application has been submitted. Once approved, we will notify you here and send the latest announcement on Telegram and by email. No further action is needed 😊",
+    "✅ ¡Gracias! Su solicitud se ha enviado. Tras aprobarla, le avisaremos aquí y enviaremos el último anuncio por Telegram y correo. Por ahora no necesita hacer nada más 😊",
+    "✅ Merci ! Votre demande a été envoyée. Après approbation, nous vous informerons ici et enverrons la dernière annonce sur Telegram et par e-mail. Vous n’avez rien d’autre à faire 😊"
+  ],
+  "pending": [
+    "⏳ Ваша заявка ещё на рассмотрении. Мы сообщим вам о решении. Повторно заполнять анкету не нужно.",
+    "⏳ Your application is being reviewed. We will notify you. You do not need to register again.",
+    "⏳ Su solicitud está en revisión. Le avisaremos. No necesita registrarse de nuevo.",
+    "⏳ Votre demande est en cours d’examen. Nous vous informerons. Inutile de vous réinscrire."
+  ],
+  "approved": [
+    "🎉 {name}, ваша заявка одобрена!\nСпасибо, что вы с нами. Теперь вы будете получать важные сообщения в Telegram и на электронную почту.\n🌍 Изменить язык можно командой /language.",
+    "🎉 {name}, your application has been approved!\nThank you for joining us. You will now receive important messages on Telegram and by email.\n🌍 Use /language to change your language.",
+    "🎉 {name}, ¡su solicitud ha sido aprobada!\nGracias por acompañarnos. Ahora recibirá mensajes importantes por Telegram y correo.\n🌍 Use /language para cambiar el idioma.",
+    "🎉 {name}, votre demande est approuvée !\nMerci de nous rejoindre. Vous recevrez les messages importants sur Telegram et par e-mail.\n🌍 Utilisez /language pour changer de langue."
+  ],
+  "active": [
+    "✅ Ваша заявка одобрена. Вы получаете важные сообщения в Telegram и на почту.",
+    "✅ Your application is approved. You receive important messages on Telegram and by email.",
+    "✅ Su solicitud está aprobada. Recibe mensajes importantes por Telegram y correo.",
+    "✅ Votre demande est approuvée. Vous recevez les messages importants sur Telegram et par e-mail."
+  ],
+  "empty": [
+    "📭 Пока опубликованных объявлений нет. Мы отправим вам первое, как только оно появится.",
+    "📭 There are no published announcements yet. We will send you the first one when it is available.",
+    "📭 Todavía no hay anuncios publicados. Le enviaremos el primero cuando esté disponible.",
+    "📭 Aucune annonce n’a encore été publiée. Nous vous enverrons la première dès sa publication."
+  ],
+  "changes": [
+    "✏️ Пожалуйста, исправьте анкету и отправьте её повторно.",
+    "✏️ Please update your details and submit again.",
+    "✏️ Corrija sus datos y vuelva a enviar la solicitud.",
+    "✏️ Veuillez corriger vos informations et renvoyer votre demande."
+  ],
+  "rejected": [
+    "Ваша заявка отклонена. Повторная подача доступна после разрешения администратора.",
+    "Your application has been declined. An administrator must allow a new submission.",
+    "Su solicitud ha sido rechazada. Un administrador debe autorizar un nuevo envío.",
+    "Votre demande a été refusée. Un administrateur doit autoriser une nouvelle demande."
+  ],
+  "reopened": [
+    "Вы можете проверить данные и подать заявку повторно.",
+    "You may check your details and apply again.",
+    "Puede revisar sus datos y volver a enviar la solicitud.",
+    "Vous pouvez vérifier vos informations et déposer une nouvelle demande."
+  ],
+  "changed": [
+    "🌍 Язык сохранён для следующих сообщений в Telegram и на почте.",
+    "🌍 Language saved for future Telegram messages and emails.",
+    "🌍 Idioma guardado para futuros mensajes de Telegram y correos.",
+    "🌍 Langue enregistrée pour les prochains messages Telegram et e-mails."
+  ],
+  "help": [
+    "Новости Imén Nails для зарегистрированных пользователей. Заполните анкету: после одобрения объявления будут приходить в Telegram и на email.\n\n/start — регистрация или статус заявки\n/language — смена языка\n/help — помощь\nОтветы на объявления не обрабатываются.",
+    "Imén Nails news for registered users. Complete your details: after approval, announcements will arrive in Telegram and by email.\n\n/start — register or check application status\n/language — change language\n/help — help\nReplies to announcements are not monitored.",
+    "Noticias de Imén Nails para usuarios registrados. Complete sus datos: tras la aprobación, recibirá anuncios en Telegram y por email.\n\n/start — registro o estado de la solicitud\n/language — cambiar idioma\n/help — ayuda\nNo se atienden las respuestas a los anuncios.",
+    "Actualités Imén Nails pour les utilisateurs inscrits. Complétez votre dossier : après validation, vous recevrez les annonces sur Telegram et par e-mail.\n\n/start — inscription ou état de la demande\n/language — changer de langue\n/help — aide\nLes réponses aux annonces ne sont pas traitées."
+  ]
+}

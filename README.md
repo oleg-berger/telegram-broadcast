@@ -3,6 +3,10 @@
 Бот регистрирует пользователей, переводит объявления и отправляет их в Telegram и на email.
 PHP 8.4+. SQLite. Два процесса: `poll` принимает сообщения, `worker` выполняет задания.
 
+Ветка `broadcast-whatsapp` добавляет WhatsApp и отдельный процесс `whatsapp-poll`.
+Готовый изолированный стенд с локальными Telegram/email описан в
+[инструкции WhatsApp](docs/whatsapp/APPLICATION.md).
+
 ## Возможности
 
 - Языки: RU, EN-GB, ES, FR.

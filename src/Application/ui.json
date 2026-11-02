@@ -1,4 +1,84 @@
 {
+  "start_hint": [
+    "/start — Русский / English / Español / Français", "/start — Русский / English / Español / Français", "/start — Русский / English / Español / Français", "/start — Русский / English / Español / Français"
+  ],
+  "link_offer": [
+    "Возможно, у вас уже есть заявка. Чтобы подключить этот мессенджер, отправьте /link и подтвердите запрос в ранее подключённом мессенджере. Нет доступа к нему — /linkhelp.",
+    "You may already have an application. Send /link to connect this messenger, then confirm in your previously connected messenger. If you cannot access it, send /linkhelp.",
+    "Es posible que ya tenga una solicitud. Envíe /link para conectar este servicio de mensajería y confirme en el que ya tenía conectado. Si no tiene acceso, envíe /linkhelp.",
+    "Vous avez peut-être déjà une demande. Envoyez /link pour connecter cette messagerie, puis confirmez dans la messagerie déjà connectée. Si vous n’y avez plus accès, envoyez /linkhelp."
+  ],
+  "link_manual_offer": [
+    "Для подключения мессенджера нужна проверка сотрудником. Отправьте /linkhelp. Данные существующей заявки не раскрываются.",
+    "Connecting this messenger requires a staff review. Send /linkhelp. Existing application details are not disclosed.",
+    "La conexión requiere una revisión del equipo. Envíe /linkhelp. No se revelan los datos de la solicitud existente.",
+    "La connexion nécessite une vérification par l’équipe. Envoyez /linkhelp. Les informations de la demande existante restent confidentielles."
+  ],
+  "link_pending": [
+    "Подтвердите подключение в ранее подключённом мессенджере в течение 15 минут. Нет доступа — /linkhelp.",
+    "Confirm the connection in your previously connected messenger within 15 minutes. If you cannot access it, send /linkhelp.",
+    "Confirme la conexión en su servicio de mensajería anterior en un plazo de 15 minutos. Si no tiene acceso, envíe /linkhelp.",
+    "Confirmez la connexion dans votre messagerie déjà connectée sous 15 minutes. Si vous n’y avez plus accès, envoyez /linkhelp."
+  ],
+  "link_manual_pending": [
+    "Запрос на подключение передан сотруднику. Дождитесь результата проверки.",
+    "Your connection request has been sent to the team. Please wait for the review result.",
+    "Su solicitud de conexión se ha enviado al equipo. Espere el resultado de la revisión.",
+    "Votre demande de connexion a été transmise à l’équipe. Veuillez attendre le résultat de la vérification."
+  ],
+  "link_confirm_prompt": [
+    "Запрошено подключение второго мессенджера к вашей заявке. Подтвердите, только если запрос отправили вы. Подтверждение действует 15 минут. Если запрос не ваш, не подтверждайте.",
+    "A second messenger has requested a connection to your application. Confirm only if you made this request. Confirmation expires in 15 minutes. If this was not you, do not confirm.",
+    "Se ha solicitado conectar otro servicio de mensajería a su solicitud. Confirme solo si usted lo solicitó. La confirmación caduca en 15 minutos. Si no fue usted, no confirme.",
+    "Une connexion à une seconde messagerie a été demandée pour votre compte. Confirmez uniquement si vous avez fait cette demande. La confirmation expire dans 15 minutes. Sinon, ne confirmez pas."
+  ],
+  "link_confirm_button": ["Подтвердить подключение", "Confirm connection", "Confirmar conexión", "Confirmer la connexion"],
+  "link_confirm_code": [
+    "Запрошено подключение второго мессенджера к вашей заявке. Подтвердите, только если запрос отправили вы. Чтобы подтвердить именно этот запрос, скопируйте и отправьте команду целиком в течение 15 минут:\n\n/confirm {token}\n\nЕсли запрос не ваш, не отправляйте команду. Ответ цифрой не подтверждает подключение.",
+    "A second messenger has requested a connection to your application. Confirm only if you made this request. To confirm this specific request, copy and send the entire command within 15 minutes:\n\n/confirm {token}\n\nIf this was not you, do not send the command. A numeric reply does not confirm the connection.",
+    "Se ha solicitado conectar otro servicio de mensajería a su solicitud. Confirme solo si usted lo solicitó. Para confirmar esta solicitud concreta, copie y envíe el comando completo en un plazo de 15 minutos:\n\n/confirm {token}\n\nSi no fue usted, no envíe el comando. Una respuesta numérica no confirma la conexión.",
+    "Une connexion à une seconde messagerie a été demandée pour votre compte. Confirmez uniquement si vous avez fait cette demande. Pour confirmer cette demande précise, copiez et envoyez la commande complète sous 15 minutes :\n\n/confirm {token}\n\nSinon, n’envoyez pas la commande. Une réponse numérique ne confirme pas la connexion."
+  ],
+  "link_complete": [
+    "Мессенджер подключён к общей заявке. Ранее подключённый мессенджер сохранён. Рассылки доступны после одобрения заявки.",
+    "The messenger is connected to your shared application. Your previous messenger remains connected. Broadcasts are available after application approval.",
+    "El servicio de mensajería está conectado a su solicitud compartida. El anterior sigue conectado. Los anuncios estarán disponibles cuando se apruebe la solicitud.",
+    "La messagerie est connectée à votre demande commune. Votre messagerie précédente reste connectée. Les annonces sont disponibles après l’approbation de la demande."
+  ],
+  "link_unavailable": [
+    "Сейчас запрос недоступен. Проверьте введённые контакты. Если запрос уже отправлен, дождитесь подтверждения или окончания 15 минут; число запросов ограничено.",
+    "The request is currently unavailable. Check the contacts you entered. If a request is already pending, wait for confirmation or for 15 minutes to expire; requests are rate limited.",
+    "La solicitud no está disponible ahora. Revise los contactos introducidos. Si ya hay una solicitud pendiente, espere la confirmación o a que pasen 15 minutos; el número de solicitudes está limitado.",
+    "La demande est indisponible pour le moment. Vérifiez les coordonnées saisies. Si une demande est en cours, attendez sa confirmation ou l’expiration des 15 minutes ; le nombre de demandes est limité."
+  ],
+  "link_invalid": ["Подтверждение недоступно, просрочено или уже использовано.", "The confirmation is unavailable, expired or already used.", "La confirmación no está disponible, ha caducado o ya se ha utilizado.", "La confirmation est indisponible, expirée ou déjà utilisée."],
+  "link_rejected": ["Подключение не подтверждено сотрудником. Можно продолжить свою регистрацию или обратиться за помощью: /linkhelp.", "The team did not approve the connection. You can continue your registration or ask for help: /linkhelp.", "El equipo no aprobó la conexión. Puede continuar su registro o pedir ayuda: /linkhelp.", "L’équipe n’a pas approuvé la connexion. Vous pouvez poursuivre votre inscription ou demander de l’aide : /linkhelp."],
+  "link_staff_pending": ["Запрос подключения #{id} требует проверки. /links — список; /linkresolve ID approve|reject ПРИЧИНА — решение.", "Connection request #{id} requires review. /links lists requests; /linkresolve ID approve|reject REASON records a decision.", "La solicitud de conexión #{id} requiere revisión. /links muestra la lista; /linkresolve ID approve|reject MOTIVO registra la decisión.", "La demande de connexion #{id} doit être vérifiée. /links affiche les demandes ; /linkresolve ID approve|reject MOTIF enregistre une décision."],
+  "link_staff_card": [
+    "Подключение #{id}: заявка #{source} → #{target}\nРучная проверка: {manual}; срок: {expires}\nПроверьте владельца обоих аккаунтов вне неподтверждённого диалога. Анкеты: /requests ID. Решение: /linkresolve {id} approve|reject ПРИЧИНА",
+    "Connection #{id}: application #{source} → #{target}\nManual review: {manual}; expires: {expires}\nVerify both account owners outside the unconfirmed conversation. Applications: /requests ID. Decision: /linkresolve {id} approve|reject REASON",
+    "Conexión #{id}: solicitud #{source} → #{target}\nRevisión manual: {manual}; caduca: {expires}\nVerifique ambos propietarios fuera de la conversación no confirmada. Solicitudes: /requests ID. Decisión: /linkresolve {id} approve|reject MOTIVO",
+    "Connexion #{id} : demande #{source} → #{target}\nVérification manuelle : {manual} ; expiration : {expires}\nVérifiez les titulaires hors de la conversation non confirmée. Demandes : /requests ID. Décision : /linkresolve {id} approve|reject MOTIF"
+  ],
+  "link_staff_empty": ["Ожидающих запросов подключения нет.", "There are no pending connection requests.", "No hay solicitudes de conexión pendientes.", "Aucune demande de connexion en attente."],
+  "link_staff_usage": ["Укажите решение и обязательную причину: /linkresolve ID approve|reject ПРИЧИНА", "Enter the decision and a required reason: /linkresolve ID approve|reject REASON", "Indique la decisión y un motivo obligatorio: /linkresolve ID approve|reject MOTIVO", "Indiquez la décision et un motif obligatoire : /linkresolve ID approve|reject MOTIF"],
+  "link_staff_resolved": ["Решение по подключению сохранено в аудите.", "The connection decision has been recorded in the audit.", "La decisión de conexión se ha registrado en la auditoría.", "La décision de connexion a été enregistrée dans le journal d’audit."],
+  "link_staff_help": ["/links — запросы подключения\n/linkresolve ID approve|reject ПРИЧИНА — решение с аудитом", "/links — connection requests\n/linkresolve ID approve|reject REASON — audited decision", "/links — solicitudes de conexión\n/linkresolve ID approve|reject MOTIVO — decisión auditada", "/links — demandes de connexion\n/linkresolve ID approve|reject MOTIF — décision auditée"],
+  "stop_complete": ["Рассылки в Telegram, WhatsApp и на email прекращены.", "Broadcasts to Telegram, WhatsApp and email have been stopped.", "Se han detenido los anuncios por Telegram, WhatsApp y correo electrónico.", "Les annonces sur Telegram, WhatsApp et par courriel ont été arrêtées."],
+  "stop_pending": ["Просьба прекратить сообщения передана сотруднику. Ваша заявка пока не участвует в рассылках.", "Your request to stop messages has been sent to the team. Your application is not currently included in broadcasts.", "Su petición de dejar de recibir mensajes se ha enviado al equipo. Su solicitud todavía no está incluida en los anuncios.", "Votre demande d’arrêt des messages a été transmise à l’équipe. Votre demande ne participe pas actuellement aux diffusions."],
+  "stop_staff": ["Пользователь #{id} просит прекратить сообщения во всех каналах. Проверьте статус: /requests {id}. Одобренный пользователь отписан автоматически.", "User #{id} requests that messages stop across all channels. Check /requests {id}. Approved users are unsubscribed automatically.", "El usuario #{id} pide dejar de recibir mensajes en todos los canales. Revise /requests {id}. Los usuarios aprobados se dan de baja automáticamente.", "L’utilisateur #{id} demande l’arrêt des messages sur tous les canaux. Vérifiez /requests {id}. Les utilisateurs approuvés sont désabonnés automatiquement."],
+  "application_channels": ["Каналы: {channels}", "Channels: {channels}", "Canales: {channels}", "Canaux : {channels}"],
+  "channel_disabled": ["{channel} (отключён)", "{channel} (disabled)", "{channel} (desactivado)", "{channel} (désactivé)"],
+  "broadcast_report_whatsapp": [
+    "WhatsApp: принято {accepted}, доставлено {delivered}, прочитано {read}, результат неизвестен {unknown}, ошибок {failed}, пропущено {skipped}.",
+    "WhatsApp: accepted {accepted}, delivered {delivered}, read {read}, unknown {unknown}, failed {failed}, skipped {skipped}.",
+    "WhatsApp: aceptados {accepted}, entregados {delivered}, leídos {read}, desconocidos {unknown}, fallidos {failed}, omitidos {skipped}.",
+    "WhatsApp : acceptés {accepted}, livrés {delivered}, lus {read}, inconnus {unknown}, échoués {failed}, ignorés {skipped}."
+  ],
+  "wa_unavailable": ["WhatsApp недоступен. Очередь сохранена; Telegram и email продолжают работать.", "WhatsApp is unavailable. The queue is preserved; Telegram and email continue working.", "WhatsApp no está disponible. La cola se conserva; Telegram y el correo siguen funcionando.", "WhatsApp est indisponible. La file est conservée ; Telegram et le courriel continuent de fonctionner."],
+  "wa_recovered": ["Подключение WhatsApp восстановлено. Продолжаем отправку накопленной очереди.", "WhatsApp is connected again. The saved queue is resuming.", "Se ha restablecido WhatsApp. Se reanudan los envíos de la cola guardada.", "La connexion WhatsApp est rétablie. L’envoi de la file conservée reprend."],
+  "wa_uncertain": ["Результат WhatsApp-задания #{id} неизвестен. Автоматический повтор отключён, требуется проверка.", "The result of WhatsApp job #{id} is unknown. Automatic retry is disabled; review is required.", "El resultado de la tarea de WhatsApp #{id} es desconocido. El reintento automático está desactivado; se requiere revisión.", "Le résultat de la tâche WhatsApp #{id} est inconnu. La relance automatique est désactivée ; une vérification est nécessaire."],
+  "wa_job_failed": ["WhatsApp-задание #{id} не выполнено. После устранения причины: /retryjob {id}.", "WhatsApp job #{id} failed. After fixing the cause: /retryjob {id}.", "La tarea de WhatsApp #{id} falló. Tras corregir la causa: /retryjob {id}.", "La tâche WhatsApp #{id} a échoué. Après correction de la cause : /retryjob {id}."],
   "draft_send": [
     "📨 Разослать", "📨 Send broadcast", "📨 Enviar anuncio", "📨 Diffuser"
   ],

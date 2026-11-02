@@ -19,8 +19,30 @@ final class ApplicationCard
         }
         $store->queueReply(
             $staff,
-            "Заявка #$id · " . $user['status'] . "\n" . Messages::text('RU', 'review', [...$user, 'language' => Messages::LANGUAGES[$user['language']]]),
+            "Заявка #$id · " . $user['status'] . "\n" . self::channels($store, $user, 'RU')
+                . "\n" . Messages::text('RU', 'review', [...$user, 'language' => Messages::LANGUAGES[$user['language']]]),
             ['reply_markup' => ['inline_keyboard' => $rows]],
         );
+    }
+
+    public static function channels(Store $store, array $user, string $language): string
+    {
+        $channels = [];
+        foreach ($store->identities($user['id']) as $identity) {
+            $label = $identity['channel'] === 'telegram' ? 'Telegram' : 'WhatsApp';
+            $channels[] = $identity['enabled'] ? $label : Messages::text($language, 'channel_disabled', ['channel' => $label]);
+        }
+        if ($user['email'] !== '') { $channels[] = 'email'; }
+        return Messages::text($language, 'application_channels', ['channels' => implode(', ', $channels)]);
+    }
+
+    public static function sendChannelStatus(Store $store, array $user, ?int $identityId = null): void
+    {
+        foreach ($store->identities($user['id']) as $identity) {
+            if ($identity['channel'] === 'whatsapp') {
+                $store->queueUserReply($user['id'], self::channels($store, $user, $user['language']), [], $identityId);
+                return;
+            }
+        }
     }
 }

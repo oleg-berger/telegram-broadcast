@@ -155,6 +155,7 @@ final class DeliveryTest extends TestCase
 
     public function testCommentTranslationDoesNotCrashWorker(): void
     {
+        $this->user(1, 'FR');
         $this->store->queueComment(1, 'FR', 'Please correct the name', 'Correction', 100);
         $this->drain();
         self::assertContains([1, "Correction\n\nFR:Please correct the name"], $this->sent);

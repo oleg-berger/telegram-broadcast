@@ -5,6 +5,7 @@ vendor
 var
 .phpunit.cache
 .git
+.unlazy
 secrets
 client_secret*.json
 gmail-oauth*.json

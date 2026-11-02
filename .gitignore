@@ -5,3 +5,4 @@
 /gmail-oauth*.json
 /var/
 /.phpunit.cache/
+/.unlazy/

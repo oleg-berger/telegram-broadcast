@@ -72,6 +72,40 @@ final class Staff
 
     private function command(int $id, string $text): void
     {
+        if ($text === '/links' || str_starts_with($text, '/linkresolve')) {
+            if (!$this->super($id)) { $this->reply($id, 'Недостаточно прав.'); return; }
+            if ($text === '/links') {
+                $requests = $this->store->pendingLinks();
+                if (!$requests) { $this->reply($id, Messages::text('RU', 'link_staff_empty')); }
+                foreach ($requests as $request) {
+                    $this->reply($id, Messages::text('RU', 'link_staff_card', [
+                        'id' => $request['id'], 'source' => $request['source_user_id'], 'target' => $request['target_user_id'],
+                        'manual' => $request['manual'] ? 'да' : 'нет', 'expires' => gmdate('Y-m-d H:i:s', $request['expires_at']) . ' UTC',
+                    ]));
+                    foreach ([$request['source_user_id'], $request['target_user_id']] as $userId) {
+                        $user = $this->store->user($userId);
+                        if ($user !== null) { ApplicationCard::send($this->store, $id, $user); }
+                    }
+                }
+                return;
+            }
+            if (!preg_match('/^\/linkresolve\s+([1-9][0-9]*)\s+(approve|reject)\s+(\S.*)$/suD', $text, $match)) {
+                $this->reply($id, Messages::text('RU', 'link_staff_usage'));
+                return;
+            }
+            $request = $this->store->linkRequest((int) $match[1]);
+            $result = $this->store->resolveLink((int) $match[1], $id, $match[2] === 'approve', trim($match[3]), time());
+            if ($result === null) { $this->reply($id, Messages::text('RU', 'link_invalid')); return; }
+            if ($match[2] === 'approve') {
+                (new AccountLinker($this->store, $this->superadmins))->completed($result);
+            } elseif ($request !== null) {
+                $identity = $this->store->identityById($request['source_identity_id']);
+                $user = $identity !== null ? $this->store->user($identity['user_id']) : null;
+                if ($user !== null) { $this->store->queueUserReply($user['id'], Messages::text($user['language'], 'link_rejected'), [], $identity['id']); }
+            }
+            $this->reply($id, Messages::text('RU', 'link_staff_resolved'));
+            return;
+        }
         if (preg_match('/^\/retryjob\s+([1-9][0-9]*)$/D', $text, $match)) {
             if (!$this->approveUsers($id) && !$this->adminsCanExport) { $this->reply($id, 'Недостаточно прав.'); return; }
             $this->reply($id, $this->store->retryAuxiliaryJob((int) $match[1], $id, $this->super($id)) ? 'Задание поставлено на повтор.' : 'Задание недоступно или не содержит ошибки.');
@@ -79,7 +113,7 @@ final class Staff
         }
         if (preg_match('/^\/unsubscribe\s+([1-9][0-9]*)$/D', $text, $match)) {
             if (!$this->super($id)) { $this->reply($id, 'Отписка пользователей доступна только суперадминистратору.'); return; }
-            $this->reply($id, $this->store->unsubscribeUser((int) $match[1]) ? 'Пользователь отписан от рассылок в Telegram и на почте.' : 'Пользователь не найден среди одобренных.');
+            $this->reply($id, $this->store->unsubscribeUser((int) $match[1]) ? 'Пользователь отписан от рассылок в Telegram, WhatsApp и на почте.' : 'Пользователь не найден среди одобренных.');
             return;
         }
         if (preg_match('/^\/userdata$/iD', $text)) {
@@ -128,6 +162,7 @@ final class Staff
         if ($this->super($id) || $this->adminsCanExport) { $help .= "\n/userdata — общая база Excel"; }
         if ($this->approveUsers($id) || $this->adminsCanExport) { $help .= "\n/retryjob ID — повторить ошибку комментария или Excel"; }
         if ($this->super($id)) { $help .= "\n/unsubscribe ID — отписать пользователя"; }
+        if ($this->super($id)) { $help .= "\n" . Messages::text('RU', 'link_staff_help'); }
         $this->reply($id, $help);
     }
 
@@ -146,9 +181,10 @@ final class Staff
             }
             $status = $action === 'approve' ? 'approved' : 'draft';
             if ($this->store->decideApplication((int) $userId, (int) $revision, $status, $id)) {
-                $this->store->queueReply((int) $userId, Messages::text($user['language'], $action === 'approve' ? 'approved' : 'reopened', $user));
+                $this->store->queueUserReply((int) $userId, Messages::text($user['language'], $action === 'approve' ? 'approved' : 'reopened', $user));
+                if ($action === 'approve') { ApplicationCard::sendChannelStatus($this->store, $user); }
                 if ($action === 'approve' && !$this->store->addCatchup((int) $userId, $user['language'])) {
-                    $this->store->queueReply((int) $userId, Messages::text($user['language'], 'empty'));
+                    $this->store->queueUserReply((int) $userId, Messages::text($user['language'], 'empty'));
                 }
                 $this->reply($id, $action === 'approve' ? '✅ Пользователь одобрен.' : 'Повторная подача разрешена.');
             }
