@@ -8,7 +8,7 @@ PHP 8.4+. SQLite. Два процесса: `poll` принимает сообщ�
 [инструкции WhatsApp](docs/whatsapp/APPLICATION.md).
 Для реального тестового Telegram → WhatsApp используйте отдельный комплект:
 `docker compose -f compose.whatsapp.yaml up -d --no-build` (после локальной сборки,
-описанной в инструкции). Он использует тестовую базу и Mailpit.
+описанной в инструкции). Он использует отдельную тестовую базу и Gmail API.
 
 ## Возможности
 

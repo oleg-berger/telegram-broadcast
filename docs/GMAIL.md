@@ -74,6 +74,21 @@ docker compose -f compose.yaml -f compose.gmail.yaml up -d
 docker compose -f compose.yaml -f compose.gmail.yaml logs --tail=100
 ```
 
+В ветке `broadcast-whatsapp` отдельный `compose.whatsapp.yaml` уже включает этот же
+Gmail API и те же read-only OAuth-файлы для всех PHP-процессов. Дополнительный
+`compose.gmail.yaml` ему не нужен. При переходе с прежнего Mailpit остановите PHP-процессы
+перед пересозданием, чтобы инициализация могла получить блокировки базы:
+
+```powershell
+docker compose -f compose.whatsapp.yaml stop poll worker whatsapp-poll
+docker compose -f compose.whatsapp.yaml run --rm --no-deps poll check
+docker compose -f compose.whatsapp.yaml up -d --no-build
+```
+
+Готовые почтовые задания, ранее принятые Mailpit, не повторяются при смене транспорта.
+Новое одобренное объявление отправляется через Gmail. Отдельный профиль `mailpit`
+сохранён для локального приёмника, но не меняет выбранный `MAIL_TRANSPORT=gmail`.
+
 Не добавляйте compose.test.yaml к этому запуску: он предназначен для Mailpit и принудительно выбирает SMTP. `APP_ENV=test` сам по себе не отключает реальные отправки Gmail.
 
 На сервер передайте два JSON защищённым способом отдельно от исходников, в каталог secrets. Файлы должны читаться пользователем контейнера UID 1000. На Linux установите владельца UID/GID 1000 и права 600, обеспечив доступ к каталогу; на Windows ограничьте ACL нужными пользователями. Не коммитьте файлы, не помещайте их в образ, общие логи или публичную папку сайта.

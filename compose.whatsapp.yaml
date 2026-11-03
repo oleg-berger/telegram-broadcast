@@ -10,12 +10,9 @@ x-app: &app
   environment:
     DATABASE_PATH: /data/application.sqlite
     APP_ENV: test
-    MAIL_TRANSPORT: smtp
-    SMTP_HOST: mailpit
-    SMTP_PORT: "1025"
-    SMTP_ENCRYPTION: none
-    SMTP_USERNAME: ""
-    SMTP_PASSWORD: ""
+    MAIL_TRANSPORT: gmail
+    GMAIL_OAUTH_CLIENT_FILE: /run/secrets/gmail-client.json
+    GMAIL_OAUTH_TOKEN_FILE: /run/secrets/gmail-token.json
     TELEGRAM_TEAM_CHANNEL_ID: ""
     WHATSAPP_ENABLED: "true"
     WHATSAPP_URL: http://127.0.0.1:21465
@@ -26,6 +23,18 @@ x-app: &app
     - app-data:/data
     - ./secrets/whatsapp-spike/session-token.json:/run/secrets/whatsapp-token.json:ro
     - ./secrets/whatsapp-app/allowed-recipients.json:/run/secrets/whatsapp-allowed.json:ro
+    - type: bind
+      source: ./secrets/gmail-client.json
+      target: /run/secrets/gmail-client.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ./secrets/gmail-token.json
+      target: /run/secrets/gmail-token.json
+      read_only: true
+      bind:
+        create_host_path: false
   network_mode: service:transport
   init: true
   restart: unless-stopped
@@ -92,8 +101,6 @@ services:
     depends_on:
       init:
         condition: service_completed_successfully
-      mailpit:
-        condition: service_started
   whatsapp-poll:
     <<: *app
     command: ["whatsapp-poll"]
@@ -101,6 +108,7 @@ services:
       init:
         condition: service_completed_successfully
   mailpit:
+    profiles: ["mailpit"]
     image: axllent/mailpit:latest
     ports:
       - "127.0.0.1:8025:8025"
