@@ -4,22 +4,24 @@ RUN apt-get update \
     && docker-php-ext-install -j"$(nproc)" pcntl intl zip \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+RUN test -s /usr/local/bin/composer && composer --version
 WORKDIR /app
 COPY composer.json composer.lock ./
 
 FROM base AS test
-RUN composer install --no-interaction --prefer-dist --no-progress
+RUN composer install --no-interaction --prefer-dist --no-progress && test -s vendor/autoload.php
 COPY assets/ assets/
 COPY src/ src/
 COPY migrations/ migrations/
 COPY bin/ bin/
 COPY tests/ tests/
 COPY tools/whatsapp/LocalStand.php tools/whatsapp/LocalStand.php
+COPY tools/whatsapp/TelegramTime.php tools/whatsapp/TelegramTime.php
 COPY phpunit.xml ./
 RUN composer test
 
 FROM base AS production
-RUN composer install --no-dev --no-interaction --prefer-dist --no-progress --optimize-autoloader
+RUN composer install --no-dev --no-interaction --prefer-dist --no-progress --optimize-autoloader && test -s vendor/autoload.php
 COPY assets/ assets/
 COPY src/ src/
 COPY migrations/ migrations/

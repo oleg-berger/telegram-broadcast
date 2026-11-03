@@ -1,0 +1,110 @@
+name: broadcast-whatsapp-test
+
+x-app: &app
+  image: broadcast-whatsapp-app:local
+  build:
+    context: .
+    dockerfile: Dockerfile.whatsapp
+    network: none
+  env_file: .env
+  environment:
+    DATABASE_PATH: /data/application.sqlite
+    APP_ENV: test
+    MAIL_TRANSPORT: smtp
+    SMTP_HOST: mailpit
+    SMTP_PORT: "1025"
+    SMTP_ENCRYPTION: none
+    SMTP_USERNAME: ""
+    SMTP_PASSWORD: ""
+    TELEGRAM_TEAM_CHANNEL_ID: ""
+    WHATSAPP_ENABLED: "true"
+    WHATSAPP_URL: http://127.0.0.1:21465
+    WHATSAPP_SESSION: whatsapp-test
+    WHATSAPP_TOKEN_FILE: /run/secrets/whatsapp-token.json
+    WHATSAPP_ALLOWED_RECIPIENTS_FILE: /run/secrets/whatsapp-allowed.json
+  volumes:
+    - app-data:/data
+    - ./secrets/whatsapp-spike/session-token.json:/run/secrets/whatsapp-token.json:ro
+    - ./secrets/whatsapp-app/allowed-recipients.json:/run/secrets/whatsapp-allowed.json:ro
+  network_mode: service:transport
+  init: true
+  restart: unless-stopped
+  stop_grace_period: 45s
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  logging:
+    driver: json-file
+    options:
+      max-size: "5m"
+      max-file: "2"
+
+services:
+  transport:
+    image: broadcast-whatsapp-transport:cf1098f-9d2171c
+    env_file: ./secrets/whatsapp-spike/transport.env
+    environment:
+      PORT: "21465"
+      DATA_DIR: /data
+      AUTO_RESTORE_SESSIONS: "true"
+      ENABLE_MANAGER: "false"
+      ENABLE_EXPERIMENTAL_INTERACTIVES: "false"
+      WEBHOOK_URL: ""
+      NATS_URL: ""
+      AMQP_URL: ""
+      S3_ENDPOINT: ""
+    ports:
+      - "127.0.0.1:21465:21465"
+    volumes:
+      - ./var/whatsapp-spike/data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    cpus: 1.0
+    mem_limit: 512m
+    pids_limit: 128
+    restart: unless-stopped
+    stop_grace_period: 35s
+    logging:
+      driver: none
+  init:
+    <<: *app
+    entrypoint: ["sh", "-c"]
+    command: ["php bin/console migrate && php tools/whatsapp/docker-init.php"]
+    restart: "no"
+    depends_on:
+      transport:
+        condition: service_healthy
+  poll:
+    <<: *app
+    command: ["poll"]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+  worker:
+    <<: *app
+    command: ["worker"]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_started
+  whatsapp-poll:
+    <<: *app
+    command: ["whatsapp-poll"]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "127.0.0.1:8025:8025"
+    restart: unless-stopped
+
+volumes:
+  app-data:

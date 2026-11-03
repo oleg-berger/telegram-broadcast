@@ -1,0 +1,17 @@
+# Local rebuild using the already installed PHP image; avoids another base-image download.
+FROM telegram-broadcast:release-fbb4b7b
+USER root
+WORKDIR /app
+COPY composer.json composer.lock ./
+COPY assets/ assets/
+COPY src/ src/
+COPY migrations/ migrations/
+COPY bin/ bin/
+COPY tools/whatsapp/docker-init.php tools/whatsapp/docker-init.php
+COPY tools/whatsapp/TelegramTime.php tools/whatsapp/TelegramTime.php
+RUN test -s /usr/local/bin/composer \
+    && COMPOSER_ROOT_VERSION=dev-broadcast-whatsapp composer install --no-dev --no-interaction --prefer-dist --no-progress --optimize-autoloader \
+    && test -s /app/vendor/autoload.php
+USER bot
+ENTRYPOINT ["php", "bin/console"]
+CMD ["worker"]

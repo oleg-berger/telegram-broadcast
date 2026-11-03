@@ -6,6 +6,9 @@ PHP 8.4+. SQLite. Два процесса: `poll` принимает сообщ�
 Ветка `broadcast-whatsapp` добавляет WhatsApp и отдельный процесс `whatsapp-poll`.
 Готовый изолированный стенд с локальными Telegram/email описан в
 [инструкции WhatsApp](docs/whatsapp/APPLICATION.md).
+Для реального тестового Telegram → WhatsApp используйте отдельный комплект:
+`docker compose -f compose.whatsapp.yaml up -d --no-build` (после локальной сборки,
+описанной в инструкции). Он использует тестовую базу и Mailpit.
 
 ## Возможности
 
