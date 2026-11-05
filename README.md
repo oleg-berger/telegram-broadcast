@@ -74,6 +74,8 @@ docker compose -f compose.yaml -f compose.test.yaml up -d --build
 
 Письма Mailpit доступны по адресу `http://127.0.0.1:8025`.
 
+Если одновременно запущен WhatsApp или другой бот, используйте отдельные образ, проект и порт: [локальная проверка DeepL в Docker](docs/DOCKER-LOCAL.md). `BOT_IMAGE` задаёт тег образа, `MAILPIT_WEB_PORT` — порт Mailpit; значения по умолчанию сохранены.
+
 ## Запуск без Docker
 
 Нужны Composer и расширения PHP: curl, fileinfo, intl, mbstring, pdo_sqlite, sqlite3, zip, XML/DOM.

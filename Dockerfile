@@ -3,22 +3,25 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends unzip libicu-dev libzip-dev \
     && docker-php-ext-install -j"$(nproc)" pcntl intl zip \
     && rm -rf /var/lib/apt/lists/*
-COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+COPY --from=composer/composer:2-bin /composer /usr/local/bin/composer
+RUN test -s /usr/local/bin/composer && php /usr/local/bin/composer --version
 WORKDIR /app
 COPY composer.json composer.lock ./
 
 FROM base AS test
-RUN composer install --no-interaction --prefer-dist --no-progress
+RUN php /usr/local/bin/composer install --no-interaction --prefer-dist --no-progress \
+    && test -s vendor/autoload.php && test -s vendor/bin/phpunit
 COPY assets/ assets/
 COPY src/ src/
 COPY migrations/ migrations/
 COPY bin/ bin/
 COPY tests/ tests/
 COPY phpunit.xml ./
-RUN composer test
+RUN php vendor/bin/phpunit
 
 FROM base AS production
-RUN composer install --no-dev --no-interaction --prefer-dist --no-progress --optimize-autoloader
+RUN php /usr/local/bin/composer install --no-dev --no-interaction --prefer-dist --no-progress --optimize-autoloader \
+    && test -s vendor/autoload.php
 COPY assets/ assets/
 COPY src/ src/
 COPY migrations/ migrations/
