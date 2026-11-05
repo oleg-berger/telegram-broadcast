@@ -1,23 +1,30 @@
-# Gates: последние три объявления новому пользователю
+# Gates: последние пять одобренных рассылок
 
-Scope: В обеих ветках новый одобренный пользователь получает до трёх последних готовых объявлений через существующую очередь без повторных доставок.
+Scope: История при одобрении пользователя, переводы и ограниченное восстановление ошибок, независимые доставки без дублей, обе ветки. Сервер и рабочая БД исключены из изменений.
 
-Environment: PHP 8.5.9; PHP_INI_SCAN_DIR=D:/telegram-bot-source/telegram-bot/var/catchup-check (intl, zip, fileinfo). Проверки выполнены на Windows через cmd.exe.
+Environment: Windows, PHP 8.5.9; PHP_INI_SCAN_DIR=D:/telegram-bot-source/telegram-bot/var/catchup-check (intl, zip, fileinfo).
 
-- [x] G1: Догоняющая рассылка выбирает последние объявления, сохраняет порядок, оба канала и отчёты
-  CHECK: php vendor/bin/phpunit --filter Catchup tests/DeliveryTest.php
+- [x] G1: Пять последних одобренных рассылок доставляются через оба канала, включая подготовку и старые ошибки перевода
+  CHECK: php vendor/bin/phpunit --filter Catchup --do-not-cache-result
   EXPECT: OK (
-  EVIDENCE: automatic-evidence=v1; definition-sha256=b74e8ceeb64ed4da3ecc2bc2beb208661132725bfdcb8b952cf9847fbf7f9e26; exit=0; EXPECT=matched; output-sha256=c608a54388b99bb8eb46f7ed4a25aa6ebc542bc512f3479b050e3dd16e1e0c2e; output-bytes=298; shell=C:\Windows\system32\cmd.exe; cwd=D:\telegram-bot-source\telegram-bot; path=68f4b331ccea/55 entries
+  EVIDENCE: automatic-evidence=v1; definition-sha256=8565289e017b306b14ddb198e5082e267edd0529b6afd16fc883f7eeb842765a; exit=0; EXPECT=matched; output-sha256=8863ddd2049e6f8be3cd1199b921f7199ed602060ee2c8db82c48947d0ce66a5; output-bytes=301; shell=C:\Windows\system32\cmd.exe; cwd=D:\telegram-bot-source\telegram-bot; path=c28d8e055baf/55 entries
 
 - [x] G2: Полный набор тестов deepl-translate проходит
   CHECK: composer test
   EXPECT: OK (
-  EVIDENCE: automatic-evidence=v1; definition-sha256=636a34909f8aa514dfadbcee4d7860e9341fe6946b89c513bfa23a824b57f469; exit=0; EXPECT=matched; output-sha256=a585ff4567f6b580c3145ddd2bed88e6b345e1d8d414fbaf8c8036c486b501a0; output-bytes=627; shell=C:\Windows\system32\cmd.exe; cwd=D:\telegram-bot-source\telegram-bot; path=68f4b331ccea/55 entries
+  EVIDENCE: automatic-evidence=v1; definition-sha256=636a34909f8aa514dfadbcee4d7860e9341fe6946b89c513bfa23a824b57f469; exit=0; EXPECT=matched; output-sha256=9f4bb83cbf06ad3ec68814ec0b34f029d89a196e6e54a31fa9a6039fd2b94464; output-bytes=628; shell=C:\Windows\system32\cmd.exe; cwd=D:\telegram-bot-source\telegram-bot; path=c28d8e055baf/55 entries
 
 - [x] G3: Полный набор тестов main проходит
   CHECK: composer --working-dir=D:/telegram-bot-source/telegram-bot-main test
   EXPECT: OK (
-  EVIDENCE: automatic-evidence=v1; definition-sha256=4e3a0c9bb5a0bf3f5ccd1e7390ad25916a3aa074fe8a54a3480140ee832fe17f; exit=0; EXPECT=matched; output-sha256=5df77d65c0df01c6ca67aadacabe99eb884ba1327713b8a01d5fede6c1f2c47c; output-bytes=632; shell=C:\Windows\system32\cmd.exe; cwd=D:\telegram-bot-source\telegram-bot; path=68f4b331ccea/55 entries
+  EVIDENCE: automatic-evidence=v1; definition-sha256=4e3a0c9bb5a0bf3f5ccd1e7390ad25916a3aa074fe8a54a3480140ee832fe17f; exit=0; EXPECT=matched; output-sha256=c436a372ff6bc421e1169228b89b5ce741f499ac9bb8fa9bc8bfe1d3abf46799; output-bytes=632; shell=C:\Windows\system32\cmd.exe; cwd=D:\telegram-bot-source\telegram-bot; path=c28d8e055baf/55 entries
 
-- [x] G4: Обе ветки содержат одинаковое исправление; UI и документация описывают три объявления
-  EVIDENCE: 2026-11-05: SHA-256 попарно совпадают у SqliteStore.php, DeliveryTest.php и ui.json в обеих рабочих копиях. README:16 в обеих ветках описывает до трёх объявлений; submitted проверен на RU/EN-GB/ES/FR. git diff --check проходит в обеих ветках. Чужие изменения main в README/VERIFICATION и импорте пользователей сохранены.
+- [x] G4: Общие файлы совпадают в обеих ветках, UI и документация описывают пять рассылок
+  CHECK: node scripts/verify-catchup.mjs
+  EXPECT: CATCHUP_PARITY_OK
+  EVIDENCE: automatic-evidence=v1; definition-sha256=bb4b586805992ee98b2b7a30eb024e532e457e183f535784f87b597859330a63; exit=0; EXPECT=matched; output-sha256=d745d237ee6e2436070caa74d2cc4a3a280a27bf3a2663104690c11021c21e8a; output-bytes=18; shell=C:\Windows\system32\cmd.exe; cwd=D:\telegram-bot-source\telegram-bot; path=c28d8e055baf/55 entries
+
+- [x] G5: Изменения не содержат ошибок пробелов в обеих ветках
+  CHECK: node scripts/verify-catchup.mjs --whitespace
+  EXPECT: CATCHUP_WHITESPACE_OK
+  EVIDENCE: automatic-evidence=v1; definition-sha256=1916d00ddf0169bcc0fe294ec0898684287dab83d068b29abfc4f90db15092b1; exit=0; EXPECT=matched; output-sha256=a0b13629df06f2911e941ab3745c8ce356c89245f7be45ea67cb1399428f85c3; output-bytes=22; shell=C:\Windows\system32\cmd.exe; cwd=D:\telegram-bot-source\telegram-bot; path=c28d8e055baf/55 entries

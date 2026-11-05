@@ -169,16 +169,22 @@ final class SqliteStore implements Store
 
     public function addCatchup(int $userId, string $language): bool
     {
-        $broadcasts = $this->run("SELECT id FROM broadcasts WHERE status='ready' AND admin_id!=? ORDER BY id DESC LIMIT 3", [$userId])->fetchAll();
+        $user = $this->user($userId);
+        if ($user === null || $user['status'] !== 'approved') { return false; }
+        // Broadcast IDs follow approval order, unlike draft IDs. Readiness must not replace recent history with older items.
+        $broadcasts = $this->run('SELECT id FROM broadcasts WHERE approved_by>0 AND admin_id!=? ORDER BY id DESC LIMIT 5', [$userId])->fetchAll();
         if ($broadcasts === []) { return false; }
-        $email = $this->user($userId)['email'];
+        $email = $user['email'];
         // Queue the selected history chronologically within each delivery channel.
         foreach (array_reverse($broadcasts) as $broadcast) {
             $this->job('translate', $broadcast['id'], null, $language);
             $this->job('translate_subject', $broadcast['id'], null, $language);
-            $telegramAdded = $this->job('delivery', $broadcast['id'], $userId, $language);
-            $emailAdded = $this->job('delivery', $broadcast['id'], $userId, $language, ['email' => $email], false, 'email');
+            $telegramAdded = $this->job('delivery', $broadcast['id'], $userId, $language, catchup: true);
+            $emailAdded = $this->job('delivery', $broadcast['id'], $userId, $language, ['email' => $email], false, 'email', true);
             if ($telegramAdded || $emailAdded) {
+                // Give stale translation failures one bounded recovery cycle, never reset them for every new subscriber.
+                $this->run("UPDATE jobs SET status='pending',attempts=0,next_at=0,error=NULL,catchup_recovered=1
+                    WHERE broadcast_id=? AND language=? AND kind IN ('translate','translate_subject') AND status='failed' AND catchup_recovered=0", [$broadcast['id'], $language]);
                 $this->run('UPDATE broadcasts SET reported=0 WHERE id=?', [$broadcast['id']]);
             }
         }
@@ -297,7 +303,7 @@ final class SqliteStore implements Store
                 (j.kind='translate_subject' AND EXISTS (SELECT 1 FROM translations t WHERE t.broadcast_id=j.broadcast_id AND t.language=j.language)) OR
                 (j.kind='channel_post' AND b.approved_by>0 AND b.team_channel_id=j.user_id AND EXISTS (
                     SELECT 1 FROM translations t WHERE t.broadcast_id=j.broadcast_id AND t.language='RU' AND t.subject IS NOT NULL)) OR
-                (j.kind='delivery' AND b.status='ready' AND EXISTS (
+                (j.kind='delivery' AND ((j.catchup=0 AND b.status='ready') OR (j.catchup=1 AND b.approved_by>0)) AND EXISTS (
                     SELECT 1 FROM translations t WHERE t.broadcast_id=j.broadcast_id AND t.language=j.language AND t.subject IS NOT NULL)))
             ORDER BY CASE j.kind WHEN 'callback' THEN 0 WHEN 'message' THEN 1 WHEN 'photo' THEN 1 WHEN 'translate' THEN 2 WHEN 'translate_subject' THEN 2 ELSE 3 END, j.id LIMIT 1", [$now]);
         if ($job !== null) { $job['payload'] = json_decode($job['payload'], true, flags: JSON_THROW_ON_ERROR); }
@@ -363,7 +369,7 @@ final class SqliteStore implements Store
     {
         $this->transaction(function (): void {
             $this->db->exec("UPDATE broadcasts SET status='failed' WHERE status='preparing' AND EXISTS (SELECT 1 FROM jobs WHERE broadcast_id=broadcasts.id AND kind IN ('translate','translate_subject') AND initial=1 AND status='failed')");
-            $this->db->exec("UPDATE jobs SET status='failed',error='translation_failed' WHERE kind='delivery' AND status='pending' AND (EXISTS (SELECT 1 FROM broadcasts WHERE id=jobs.broadcast_id AND status='failed') OR EXISTS (SELECT 1 FROM jobs t WHERE t.broadcast_id=jobs.broadcast_id AND t.language=jobs.language AND t.kind IN ('translate','translate_subject') AND t.status='failed'))");
+            $this->db->exec("UPDATE jobs SET status='failed',error='translation_failed' WHERE kind='delivery' AND status='pending' AND ((catchup=0 AND EXISTS (SELECT 1 FROM broadcasts WHERE id=jobs.broadcast_id AND status='failed')) OR EXISTS (SELECT 1 FROM jobs t WHERE t.broadcast_id=jobs.broadcast_id AND t.language=jobs.language AND t.kind IN ('translate','translate_subject') AND t.status='failed'))");
             $this->db->exec("UPDATE jobs SET status='failed',error='translation_failed' WHERE kind='translate_subject' AND status='pending' AND EXISTS (SELECT 1 FROM jobs t WHERE t.broadcast_id=jobs.broadcast_id AND t.language=jobs.language AND t.kind='translate' AND t.status='failed')");
             $this->db->exec("UPDATE jobs SET status='failed',error='translation_failed' WHERE kind='channel_post' AND status='pending' AND EXISTS (SELECT 1 FROM jobs t WHERE t.broadcast_id=jobs.broadcast_id AND t.language='RU' AND t.kind IN ('translate','translate_subject') AND t.status='failed')");
             $this->db->exec("UPDATE broadcasts SET status='ready' WHERE status='preparing' AND NOT EXISTS (SELECT 1 FROM jobs WHERE broadcast_id=broadcasts.id AND kind IN ('translate','translate_subject') AND initial=1 AND status!='done')");
@@ -392,10 +398,10 @@ final class SqliteStore implements Store
         });
     }
 
-    private function job(string $kind, ?int $broadcastId, ?int $userId, ?string $language, array $payload = [], bool $initial = false, string $channel = 'telegram'): bool
+    private function job(string $kind, ?int $broadcastId, ?int $userId, ?string $language, array $payload = [], bool $initial = false, string $channel = 'telegram', bool $catchup = false): bool
     {
         // User deliveries and the independent channel post both wait in the report.
-        return $this->run('INSERT OR IGNORE INTO jobs(kind,broadcast_id,user_id,language,payload,initial,report_included,channel) VALUES (?,?,?,?,?,?,?,?)', [$kind, $broadcastId, $userId, $language, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE), (int) $initial, (int) ($initial || in_array($kind, ['delivery', 'channel_post'], true)), $channel])->rowCount() === 1;
+        return $this->run('INSERT OR IGNORE INTO jobs(kind,broadcast_id,user_id,language,payload,initial,report_included,channel,catchup) VALUES (?,?,?,?,?,?,?,?,?)', [$kind, $broadcastId, $userId, $language, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE), (int) $initial, (int) ($initial || in_array($kind, ['delivery', 'channel_post'], true)), $channel, (int) $catchup])->rowCount() === 1;
     }
 
     private function run(string $sql, array $values = []): \PDOStatement

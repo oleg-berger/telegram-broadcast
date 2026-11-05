@@ -71,6 +71,9 @@ final class Worker
     {
         if ($this->logger === null) { return; }
         $record = ['event' => $event, 'job_id' => $job['id'], 'kind' => $job['kind']];
+        if ($job['broadcast_id'] !== null) {
+            $record += ['broadcast_id' => $job['broadcast_id'], 'channel' => $job['channel'], 'language' => $job['language']];
+        }
         if ($attempt !== null) { $record['attempt'] = $attempt; }
         ($this->logger)($record);
     }

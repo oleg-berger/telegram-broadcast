@@ -70,15 +70,14 @@ final class DeliveryTest extends TestCase
         return array_values(array_filter($this->sent, static fn ($message) => str_contains($message[1], 'Telegram:')));
     }
 
-    public function testCatchupSendsLastThreeReadyBroadcastsInOrderWithoutDuplicates(): void
+    public function testCatchupSendsLastFiveApprovedBroadcastsInOrderWithoutDuplicates(): void
     {
         $this->user(1);
         $ids = [];
-        foreach (['Old', 'Second', 'Third', 'Fourth'] as $text) {
+        foreach (['Old', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth'] as $text) {
             $ids[] = $this->broadcast($text);
             $this->drain();
         }
-        $this->broadcast('Still translating');
         $this->store->createDraft(99, 'Unapproved');
         $this->user(2, 'FR');
         self::assertTrue($this->store->transaction(fn () => $this->store->addCatchup(2, 'FR')));
@@ -88,21 +87,23 @@ final class DeliveryTest extends TestCase
         }
         self::assertTrue($this->store->transaction(fn () => $this->store->addCatchup(2, 'FR')));
         $this->drain();
-        self::assertSame([[2, 'FR:Second'], [2, 'FR:Third'], [2, 'FR:Fourth']], array_values(array_filter($this->sent, static fn ($message) => $message[0] === 2)));
+        self::assertSame([[2, 'FR:Second'], [2, 'FR:Third'], [2, 'FR:Fourth'], [2, 'FR:Fifth'], [2, 'FR:Sixth']], array_values(array_filter($this->sent, static fn ($message) => $message[0] === 2)));
         self::assertSame([
             ['user2@example.com', 'FR:Subject', 'FR:Second'],
             ['user2@example.com', 'FR:Subject', 'FR:Third'],
             ['user2@example.com', 'FR:Subject', 'FR:Fourth'],
+            ['user2@example.com', 'FR:Subject', 'FR:Fifth'],
+            ['user2@example.com', 'FR:Subject', 'FR:Sixth'],
         ], array_values(array_filter($this->mail, static fn ($message) => $message[0] === 'user2@example.com')));
         foreach (array_slice($ids, 1) as $id) {
             self::assertContains([100, "Рассылка #$id:\nTelegram: отправлено 2, пропущено 0, ошибки 0.\nEmail (принято почтовым сервисом): отправлено 2, пропущено 0, ошибки 0."], $this->reports());
         }
     }
 
-    public function testCatchupWithNoReadyBroadcastReturnsFalse(): void
+    public function testCatchupWithNoApprovedBroadcastReturnsFalse(): void
     {
         $this->user(2);
-        $this->broadcast();
+        $this->store->createDraft(99, 'Unapproved');
         self::assertFalse($this->store->addCatchup(2, 'RU'));
     }
 
