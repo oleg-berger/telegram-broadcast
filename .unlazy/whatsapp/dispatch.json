@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "waves": {
+    "ready-1": {
+      "leaves": [
+        "leaf-1.1",
+        "leaf-1.2",
+        "leaf-1.3"
+      ],
+      "state": "complete",
+      "openedAt": "2026-11-02T13:58:36.313Z",
+      "started": {
+        "leaf-1.1": {
+          "handle": "/root/wa_store",
+          "at": "2026-11-02T13:59:23.639Z"
+        },
+        "leaf-1.2": {
+          "handle": "/root/wa_flow",
+          "at": "2026-11-02T13:59:23.794Z"
+        },
+        "leaf-1.3": {
+          "handle": "/root/wa_transport",
+          "at": "2026-11-02T13:59:23.929Z"
+        }
+      },
+      "returned": {
+        "leaf-1.3": {
+          "at": "2026-11-02T14:11:49.658Z"
+        },
+        "leaf-1.1": {
+          "at": "2026-11-02T14:12:34.791Z"
+        },
+        "leaf-1.2": {
+          "at": "2026-11-02T14:15:14.789Z"
+        }
+      },
+      "sealedAt": "2026-11-02T13:59:24.075Z",
+      "completedAt": "2026-11-02T14:15:14.789Z"
+    }
+  }
+}

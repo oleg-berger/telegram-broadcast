@@ -50,10 +50,10 @@ final class DeliveryTest extends TestCase
         $this->store->saveUser(['id' => $id, 'language' => $language, 'step' => 'review', 'name' => 'Name', 'company' => 'Company', 'country' => 'Country', 'phone' => '+44770090000' . $id, 'email' => "user$id@example.com", 'status' => 'approved', 'subscribed' => 1, 'completed' => 1, 'choosing_language' => 0]);
     }
 
-    private function broadcast(): int
+    private function broadcast(string $text = 'News'): int
     {
-        return $this->store->transaction(function (): int {
-            $draft = $this->store->createDraft(99, 'News');
+        return $this->store->transaction(function () use ($text): int {
+            $draft = $this->store->createDraft(99, $text);
             $this->store->saveDraft($draft['id'], $draft['version'], ['subject' => 'Subject', 'status' => 'pending']);
             return $this->store->approveDraft($draft['id'], $draft['version'] + 1, 100)['id'];
         });
@@ -68,6 +68,54 @@ final class DeliveryTest extends TestCase
     private function reports(): array
     {
         return array_values(array_filter($this->sent, static fn ($message) => str_contains($message[1], 'Telegram:')));
+    }
+
+    public function testCatchupSendsLastThreeReadyBroadcastsInOrderWithoutDuplicates(): void
+    {
+        $this->user(1);
+        $ids = [];
+        foreach (['Old', 'Second', 'Third', 'Fourth'] as $text) {
+            $ids[] = $this->broadcast($text);
+            $this->drain();
+        }
+        $this->broadcast('Still translating');
+        $this->store->createDraft(99, 'Unapproved');
+        $this->user(2, 'FR');
+        self::assertTrue($this->store->transaction(fn () => $this->store->addCatchup(2, 'FR')));
+        self::assertSame(1, $this->store->broadcast($ids[0])['reported']);
+        foreach (array_slice($ids, 1) as $id) {
+            self::assertSame(0, $this->store->broadcast($id)['reported']);
+        }
+        self::assertTrue($this->store->transaction(fn () => $this->store->addCatchup(2, 'FR')));
+        $this->drain();
+        self::assertSame([[2, 'FR:Second'], [2, 'FR:Third'], [2, 'FR:Fourth']], array_values(array_filter($this->sent, static fn ($message) => $message[0] === 2)));
+        self::assertSame([
+            ['user2@example.com', 'FR:Subject', 'FR:Second'],
+            ['user2@example.com', 'FR:Subject', 'FR:Third'],
+            ['user2@example.com', 'FR:Subject', 'FR:Fourth'],
+        ], array_values(array_filter($this->mail, static fn ($message) => $message[0] === 'user2@example.com')));
+        foreach (array_slice($ids, 1) as $id) {
+            self::assertContains([100, "Рассылка #$id:\nTelegram: отправлено 2, пропущено 0, ошибки 0.\nEmail (принято почтовым сервисом): отправлено 2, пропущено 0, ошибки 0."], $this->reports());
+        }
+    }
+
+    public function testCatchupWithNoReadyBroadcastReturnsFalse(): void
+    {
+        $this->user(2);
+        $this->broadcast();
+        self::assertFalse($this->store->addCatchup(2, 'RU'));
+    }
+
+    public function testCatchupWithTwoBroadcastsSendsBoth(): void
+    {
+        $this->broadcast('First');
+        $this->broadcast('Second');
+        $this->drain();
+        $this->user(2, 'FR');
+        self::assertTrue($this->store->addCatchup(2, 'FR'));
+        $this->drain();
+        self::assertSame([[2, 'FR:First'], [2, 'FR:Second']], array_values(array_filter($this->sent, static fn ($message) => $message[0] === 2)));
+        self::assertCount(2, $this->mail);
     }
 
     public function testCatchupReopensReportOnlyForNewDeliveriesAndWaitsForBothChannels(): void

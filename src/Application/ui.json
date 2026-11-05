@@ -309,10 +309,10 @@
     "E-mail"
   ],
   "submitted": [
-    "✅ Спасибо! Ваша заявка отправлена на рассмотрение.\nКогда администратор одобрит её, мы сообщим вам здесь и отправим последнее опубликованное объявление в Telegram и на почту.\nПока ничего делать не нужно 😊",
-    "✅ Thank you! Your application has been submitted. Once approved, we will notify you here and send the latest announcement on Telegram and by email. No further action is needed 😊",
-    "✅ ¡Gracias! Su solicitud se ha enviado. Tras aprobarla, le avisaremos aquí y enviaremos el último anuncio por Telegram y correo. Por ahora no necesita hacer nada más 😊",
-    "✅ Merci ! Votre demande a été envoyée. Après approbation, nous vous informerons ici et enverrons la dernière annonce sur Telegram et par e-mail. Vous n’avez rien d’autre à faire 😊"
+    "✅ Спасибо! Ваша заявка отправлена на рассмотрение.\nКогда администратор одобрит её, мы сообщим вам здесь и отправим до трёх последних опубликованных объявлений в Telegram и на почту.\nПока ничего делать не нужно 😊",
+    "✅ Thank you! Your application has been submitted. Once approved, we will notify you here and send up to three of the latest announcements on Telegram and by email. No further action is needed 😊",
+    "✅ ¡Gracias! Su solicitud se ha enviado. Tras aprobarla, le avisaremos aquí y enviaremos hasta tres de los últimos anuncios por Telegram y correo. Por ahora no necesita hacer nada más 😊",
+    "✅ Merci ! Votre demande a été envoyée. Après approbation, nous vous informerons ici et enverrons jusqu’à trois des dernières annonces sur Telegram et par e-mail. Vous n’avez rien d’autre à faire 😊"
   ],
   "pending": [
     "⏳ Ваша заявка ещё на рассмотрении. Мы сообщим вам о решении. Повторно заполнять анкету не нужно.",

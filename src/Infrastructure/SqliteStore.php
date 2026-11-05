@@ -169,14 +169,18 @@ final class SqliteStore implements Store
 
     public function addCatchup(int $userId, string $language): bool
     {
-        $broadcast = $this->one("SELECT id,admin_id FROM broadcasts WHERE status='ready' ORDER BY id DESC LIMIT 1");
-        if ($broadcast === null || $broadcast['admin_id'] === $userId) { return false; }
-        $this->job('translate', $broadcast['id'], null, $language);
-        $this->job('translate_subject', $broadcast['id'], null, $language);
-        $telegramAdded = $this->job('delivery', $broadcast['id'], $userId, $language);
-        $emailAdded = $this->job('delivery', $broadcast['id'], $userId, $language, ['email' => $this->user($userId)['email']], false, 'email');
-        if ($telegramAdded || $emailAdded) {
-            $this->run('UPDATE broadcasts SET reported=0 WHERE id=?', [$broadcast['id']]);
+        $broadcasts = $this->run("SELECT id FROM broadcasts WHERE status='ready' AND admin_id!=? ORDER BY id DESC LIMIT 3", [$userId])->fetchAll();
+        if ($broadcasts === []) { return false; }
+        $email = $this->user($userId)['email'];
+        // Queue the selected history chronologically within each delivery channel.
+        foreach (array_reverse($broadcasts) as $broadcast) {
+            $this->job('translate', $broadcast['id'], null, $language);
+            $this->job('translate_subject', $broadcast['id'], null, $language);
+            $telegramAdded = $this->job('delivery', $broadcast['id'], $userId, $language);
+            $emailAdded = $this->job('delivery', $broadcast['id'], $userId, $language, ['email' => $email], false, 'email');
+            if ($telegramAdded || $emailAdded) {
+                $this->run('UPDATE broadcasts SET reported=0 WHERE id=?', [$broadcast['id']]);
+            }
         }
         return true;
     }
