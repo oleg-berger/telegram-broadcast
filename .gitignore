@@ -1,4 +1,7 @@
 /vendor/
 /.env
+/secrets/
+/client_secret*.json
+/gmail-oauth*.json
 /var/
 /.phpunit.cache/

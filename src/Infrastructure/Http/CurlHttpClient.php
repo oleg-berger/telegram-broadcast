@@ -58,10 +58,12 @@ final class CurlHttpClient implements HttpClient
 
         $responseBody = curl_exec($handle);
         if ($responseBody === false) {
-            $timeout = curl_errno($handle) === CURLE_OPERATION_TIMEDOUT;
+            $errorCode = curl_errno($handle);
+            $timeout = $errorCode === CURLE_OPERATION_TIMEDOUT;
             throw new HttpTransportException(
                 $timeout ? 'HTTP request timed out.' : 'HTTP request failed.',
                 $timeout,
+                $errorCode,
             );
         }
 

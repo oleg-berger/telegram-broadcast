@@ -5,4 +5,7 @@ vendor
 var
 .phpunit.cache
 .git
+secrets
+client_secret*.json
+gmail-oauth*.json
 *.zip

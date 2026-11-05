@@ -17,10 +17,8 @@ final class ConfigTest extends TestCase
             'TELEGRAM_ADMIN_IDS' => '42,900719',
             'TELEGRAM_SUPERADMIN_IDS' => '900719',
             'ADMINS_CAN_APPROVE_USERS' => 'true',
-            'TRANSLATOR_API_KEY' => 'deepseek-secret',
-            'TRANSLATOR_API_URL' => 'https://api.deepseek.com',
-            'TRANSLATOR_MODEL' => 'deepseek-chat',
-            'TRANSLATOR_TEMPERATURE' => '0.3',
+            'TRANSLATOR_API_KEY' => 'deepl-secret',
+            'TRANSLATOR_API_URL' => 'https://api-free.deepl.com',
             'DATABASE_PATH' => '/data/app.sqlite',
             'SMTP_HOST' => 'smtp.example.com',
             'SMTP_PORT' => '587',
@@ -38,10 +36,8 @@ final class ConfigTest extends TestCase
         self::assertSame([900719], $config->superadminIds);
         self::assertTrue($config->adminsCanApproveUsers);
         self::assertFalse($config->adminsCanExportUsers);
-        self::assertSame('deepseek-secret', $config->translatorApiKey);
-        self::assertSame('https://api.deepseek.com', $config->translatorApiUrl);
-        self::assertSame('deepseek-chat', $config->translatorModel);
-        self::assertSame(0.3, $config->translatorTemperature);
+        self::assertSame('deepl-secret', $config->translatorApiKey);
+        self::assertSame('https://api-free.deepl.com', $config->translatorApiUrl);
         self::assertSame('/data/app.sqlite', $config->databasePath);
         self::assertSame('/data' . DIRECTORY_SEPARATOR . 'backups', $config->backupDirectory);
         self::assertSame('/data' . DIRECTORY_SEPARATOR . 'runtime', $config->runtimeDirectory);
@@ -66,8 +62,6 @@ final class ConfigTest extends TestCase
         self::assertSame('', $config->smtp['replyTo']);
         self::assertSame(2, $config->mailSendIntervalSeconds);
         self::assertFalse($config->smtp['test']);
-        self::assertFalse($config->testMode);
-        self::assertNull($config->translatorTemperature);
     }
 
     public function testTestEnvironmentAllowsPlainLocalSmtpWithoutCredentials(): void
@@ -79,7 +73,6 @@ final class ConfigTest extends TestCase
         ]);
 
         self::assertTrue($config->smtp['test']);
-        self::assertTrue($config->testMode);
         self::assertSame('none', $config->smtp['encryption']);
         self::assertSame('', $config->smtp['username']);
         self::assertSame('', $config->smtp['password']);
@@ -120,12 +113,12 @@ final class ConfigTest extends TestCase
         yield 'from address' => [[...$valid, 'MAIL_FROM_ADDRESS' => 'not-an-email']];
         yield 'reply-to address' => [[...$valid, 'MAIL_REPLY_TO' => 'not-an-email']];
         yield 'from name newline' => [[...$valid, 'MAIL_FROM_NAME' => "Bot\nBcc: x@y.z"]];
-        yield 'translator url http' => [[...$valid, 'TRANSLATOR_API_URL' => 'http://api.deepseek.com']];
-        yield 'translator url credentials' => [[...$valid, 'TRANSLATOR_API_URL' => 'https://user:pass@api.deepseek.com']];
+        yield 'translator url http' => [[...$valid, 'TRANSLATOR_API_URL' => 'http://api-free.deepl.com']];
+        yield 'translator url credentials' => [[...$valid, 'TRANSLATOR_API_URL' => 'https://user:pass@api-free.deepl.com']];
         yield 'translator url missing host' => [[...$valid, 'TRANSLATOR_API_URL' => 'https:///v1']];
-        yield 'translator temperature text' => [[...$valid, 'TRANSLATOR_TEMPERATURE' => 'abc']];
-        yield 'translator temperature negative' => [[...$valid, 'TRANSLATOR_TEMPERATURE' => '-1']];
-        yield 'translator temperature high' => [[...$valid, 'TRANSLATOR_TEMPERATURE' => '3']];
+        yield 'translator lookalike host' => [[...$valid, 'TRANSLATOR_API_URL' => 'https://api.deepl.com.evil.example']];
+        yield 'translator unexpected path' => [[...$valid, 'TRANSLATOR_API_URL' => 'https://api.deepl.com/v2/translate']];
+        yield 'translator query' => [[...$valid, 'TRANSLATOR_API_URL' => 'https://api.deepl.com?key=leaked-secret']];
         yield 'mail interval zero' => [[...$valid, 'MAIL_SEND_INTERVAL_SECONDS' => '0']];
         yield 'mail interval negative' => [[...$valid, 'MAIL_SEND_INTERVAL_SECONDS' => '-5']];
         yield 'mail interval huge' => [[...$valid, 'MAIL_SEND_INTERVAL_SECONDS' => '90000']];
@@ -138,8 +131,7 @@ final class ConfigTest extends TestCase
             'TELEGRAM_ADMIN_IDS' => '1',
             'TELEGRAM_SUPERADMIN_IDS' => '2',
             'TRANSLATOR_API_KEY' => 'leaked-secret',
-            'TRANSLATOR_API_URL' => 'https://api.deepseek.com',
-            'TRANSLATOR_MODEL' => 'deepseek-chat',
+            'TRANSLATOR_API_URL' => 'https://api-free.deepl.com',
             'DATABASE_PATH' => '/data/app.sqlite',
             'SMTP_HOST' => 'smtp.example.com',
             'SMTP_PORT' => '587',

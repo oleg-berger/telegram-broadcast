@@ -89,6 +89,29 @@ final class TelegramClientTest extends TestCase
         self::assertStringContainsString('xlsx-bytes', $request['body']);
     }
 
+    public function testSendPhotoUploadsCaptionAndImage(): void
+    {
+        $http = new FakeHttpClient();
+        $http->respond(new HttpResponse(200, '{"ok":true,"result":{"message_id":2}}'));
+        $client = new TelegramClient('token', $http);
+        $path = tempnam(sys_get_temp_dir(), 'photo-test-');
+        file_put_contents($path, 'png-bytes');
+
+        try {
+            $client->sendPhoto(42, $path, 'Imén Nails help');
+        } finally {
+            unlink($path);
+        }
+
+        $request = $http->requests[0];
+        self::assertSame('https://api.telegram.org/bottoken/sendPhoto', $request['url']);
+        self::assertStringStartsWith('multipart/form-data; boundary=', $request['headers']['Content-Type']);
+        self::assertStringContainsString("name=\"chat_id\"\r\n\r\n42\r\n", $request['body']);
+        self::assertStringContainsString("name=\"caption\"\r\n\r\nImén Nails help\r\n", $request['body']);
+        self::assertStringContainsString('filename="help-card.png"', $request['body']);
+        self::assertStringContainsString('png-bytes', $request['body']);
+    }
+
     /** @return iterable<string, array{int, string, bool, ?int, bool}> */
     public static function apiFailures(): iterable
     {

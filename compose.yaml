@@ -1,7 +1,7 @@
 name: telegram-broadcast
 
 x-service: &service
-  image: telegram-broadcast:local
+  image: ${BOT_IMAGE:-telegram-broadcast:local}
   build:
     context: .
     target: production

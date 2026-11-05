@@ -1,13 +1,14 @@
 # AGENTS.md
 
-Многоязычный Telegram-бот рассылок на PHP 8.4 и SQLite, без фреймворков. Пользователи проходят регистрацию с одобрением; администратор готовит объявление, суперадминистратор одобряет; бот переводит через OpenAI-совместимый API (DeepSeek, Moonshot Kimi и т.п.) и рассылает в Telegram и на email (SMTP). Два процесса: `poll` (приём updates) и `worker` (фоновая очередь). Дополнительных серверов очередей нет.
+Многоязычный Telegram-бот рассылок на PHP 8.4 и SQLite, без фреймворков. Пользователи проходят регистрацию с одобрением; администратор готовит объявление, суперадминистратор одобряет; бот переводит через DeepL API и рассылает в Telegram и на email (SMTP). Два процесса: `poll` (приём updates) и `worker` (фоновая очередь). Дополнительных серверов очередей нет.
 
 ## Структура
 
 - `src/Application` — логика: `Kernel` (роутинг updates), `Registration`, `Staff`, `Worker`, `Messages` + `ui.json` (заранее переведённые UI-тексты на RU/EN-GB/ES/FR). Интерфейсы внешних зависимостей: `Store`, `TelegramGateway`, `Translator`, `MailGateway`, `UserExporter`.
 - `src/Domain` — `TextParts` (деление длинных текстов), `PhoneNumber` (нормализация и страна по коду), `ApiFailure` (классификация ошибок API: transient/retryAfter/blocked).
-- `src/Infrastructure` — `SqliteStore` (единственная реализация Store), `Http` (TelegramClient, OpenAiTranslator, CurlHttpClient), `Mail/SmtpMailer` (PHPMailer), `Export/XlsxUsers` (OpenSpout), `Runtime` (Config, Poller, ProcessLock, DailyBackup, SqliteBackup, Log, StopSignal, CommandMenu).
+- `src/Infrastructure` — `SqliteStore` (единственная реализация Store), `Http` (TelegramClient, DeepLTranslator, CurlHttpClient), `Mail/SmtpMailer` (PHPMailer), `Mail/GmailApiMailer` (Gmail API OAuth), `GoogleOAuthFiles` (приватные JSON), `GmailAuthorization` (локальная настройка Desktop OAuth), `Export/XlsxUsers` (OpenSpout), `Runtime` (Config, Poller, ProcessLock, DailyBackup, SqliteBackup, Log, StopSignal, CommandMenu).
 - `migrations` — SQL-миграции по порядку номеров; применяет `SqliteStore::migrate()` (каждая в своей строке таблицы `migrations`).
+- `bin/gmail-authorize CLIENT_JSON TOKEN_JSON` — разовая локальная авторизация Gmail Desktop app оператором (browser + loopback/PKCE), без отправки писем; инструкция docs/GMAIL.md. Секреты хранятся отдельно в secrets, исключены из Git и образа.
 - `bin/console` — единая точка входа: `poll`, `worker`, `migrate`, `check`, `commands`, `backup`, `restore`.
 - `tests` — PHPUnit 11, фейки внешних API внутри тестовых файлов.
 
@@ -39,12 +40,14 @@ docker compose -f compose.yaml -f compose.test.yaml up -d # + Mailpit (тест�
 
 ## Конфигурация
 
-Читается только из переменных окружения (загрузчика `.env` нет, Compose подставляет файл сам). Обязательные ключи: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ADMIN_IDS`, `TELEGRAM_SUPERADMIN_IDS`, `TRANSLATOR_API_KEY`, `TRANSLATOR_API_URL`, `TRANSLATOR_MODEL` (любой OpenAI-совместимый API по HTTPS без встроенных доступов в URL), `DATABASE_PATH`, `SMTP_HOST/PORT/ENCRYPTION/USERNAME/PASSWORD`, `MAIL_FROM_ADDRESS/NAME`. Опциональные: `APP_ENV` (`production` по умолчанию; `test` разрешает `SMTP_ENCRYPTION=none` и пустые почтовые доступы — только локальный приёмник), `ADMINS_CAN_APPROVE_USERS`, `ADMINS_CAN_EXPORT_USERS` (`true`/`false`), `MAIL_REPLY_TO`, `MAIL_SEND_INTERVAL_SECONDS` (1–86400, по умолчанию 2). Значения с префиксом `replace_with_` отклоняются. `Config` бросает одно общее сообщение без значений секретов.
+`TELEGRAM_TEAM_CHANNEL_ID` — необязательный полный отрицательный Bot API ID канала `-100…`; пустое значение отключает новые публикации. Канал фиксируется снимком при одобрении. RU-переводы только для канала не должны отменять пользовательские доставки; результат `channel_post` учитывается отдельно в отчёте. Подробности: docs/TEAM-CHANNEL.md.
+
+Читается только из переменных окружения (загрузчика `.env` нет, Compose подставляет файл сам). Обязательные ключи: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ADMIN_IDS`, `TELEGRAM_SUPERADMIN_IDS`, `TRANSLATOR_API_KEY`, `TRANSLATOR_API_URL` (`https://api-free.deepl.com` или `https://api.deepl.com`, без пути; модель и температура не используются), `DATABASE_PATH`, `MAIL_FROM_ADDRESS/NAME`. `MAIL_TRANSPORT=smtp` по умолчанию требует `SMTP_HOST/PORT/ENCRYPTION/USERNAME/PASSWORD`; `MAIL_TRANSPORT=gmail` требует `GMAIL_OAUTH_CLIENT_FILE` и `GMAIL_OAUTH_TOKEN_FILE` — пути к приватным JSON OAuth-клиента и refresh token. Файлы читаются без сети при check; секреты не печатаются. Опциональные: `APP_ENV` (`production` по умолчанию; `test` разрешает `SMTP_ENCRYPTION=none` и пустые почтовые доступы — только локальный приёмник), `ADMINS_CAN_APPROVE_USERS`, `ADMINS_CAN_EXPORT_USERS` (`true`/`false`), `MAIL_REPLY_TO`, `MAIL_SEND_INTERVAL_SECONDS` (1–86400, по умолчанию 2). Значения с префиксом `replace_with_` отклоняются. `Config` бросает одно общее сообщение без значений секретов.
 
 ## Ключевые инварианты — не нарушать
 
 - Один update = одна короткая транзакция в `Kernel` (приём update, изменения анкеты/черновика, постановка заданий). Повторный update игнорируется (`processed_updates`).
-- Вся внешняя активность — через таблицу `jobs` и `Worker::tick()` (одна операция за тик). Известные `kind`: `message`, `callback`, `translate`, `translate_subject`, `delivery` (каналы `telegram`/`email`), `comment`, `export`. Новые виды добавлять и в `nextJob`, и в `match` Worker'а, и в каскады `refreshBroadcasts` при необходимости.
+- Вся внешняя активность — через таблицу `jobs` и `Worker::tick()` (одна операция за тик). Известные `kind`: `message`, `photo`, `callback`, `translate`, `translate_subject`, `delivery` (каналы `telegram`/`email`), `channel_post` (русская тема и текст в командный канал), `comment`, `export`. Новые виды добавлять и в `nextJob`, и в `match` Worker'а, и в каскады `refreshBroadcasts` при необходимости.
 - Рассылка начинается только после одобрения черновика суперадминистратором; аудитория и языки фиксируются снимком на момент одобрения. Кнопки привязаны к `id:version` / `id:revision` — старые кнопки обязаны оставаться безопасными.
 - Исходный текст никогда не подменяет отсутствующий перевод (объявления и комментарии). Ошибки перевода → повторы, затем уведомление сотруднику; оригинал не отправляется.
 - Telegram и email — независимые задания; сбой одного канала не отменяет другой. Блокировка бота отключает только Telegram-доставку (`subscribed=0`), одобрение и почта продолжаются.
@@ -57,6 +60,8 @@ docker compose -f compose.yaml -f compose.test.yaml up -d # + Mailpit (тест�
 - Присваивать свойства PHPMailer только существующие (динамические свойства — deprecation → падение worker под строгим обработчиком ошибок; сторожит `SmtpMailerTest`).
 
 ## Стиль кода
+
+- Общие исправления вносить в обе ветки: `main` и `deepl-translate`. Логика приложения должна совпадать; различаются только интеграция переводчика, её настройки, тесты и соответствующая документация. Проверять `composer test` отдельно в каждой ветке.
 
 - `declare(strict_types=1);` в каждом файле, PSR-4 `Broadcast\`, типизированные сигнатуры, без фреймворков и ORM (подготовленные запросы PDO).
 - Компактные методы, ранние return, скобки `{}` даже для одной строки в новых файлах Application. Комментарии — по-английски, только там, где неочевидно «почему».

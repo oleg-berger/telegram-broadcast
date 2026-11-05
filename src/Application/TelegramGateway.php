@@ -9,6 +9,8 @@ interface TelegramGateway
     /** @param array<string, mixed> $options */
     public function sendMessage(int $chatId, string $text, array $options = []): void;
 
+    public function sendPhoto(int $chatId, string $path, string $caption): void;
+
     /** @return list<array<string, mixed>> */
     public function getUpdates(int $offset, int $timeout = 25): array;
 

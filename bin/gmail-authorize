@@ -1,0 +1,85 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+use Broadcast\Infrastructure\Mail\GmailAuthorization;
+use Broadcast\Infrastructure\Mail\GmailAuthorizationFailure;
+use Broadcast\Infrastructure\Mail\GoogleOAuthFiles;
+
+require dirname(__DIR__) . '/vendor/autoload.php';
+
+umask(0077);
+ini_set('display_errors', '0');
+ini_set('log_errors', '0');
+set_error_handler(static function (int $severity): never { throw new ErrorException('Local authorization failed.', 0, $severity); });
+$server = $connection = $file = null;
+$stage = 'client';
+$exitCode = 0;
+try {
+    if ($argc !== 3) {
+        echo "Использование: php bin/gmail-authorize CLIENT_JSON TOKEN_JSON\nЗапускайте локально на компьютере с браузером, с OAuth-клиентом Desktop app.\n";
+        exit(1);
+    }
+    $client = GoogleOAuthFiles::client($argv[1], desktopOnly: true);
+    $stage = 'output';
+    if (file_exists($argv[2]) || is_link($argv[2]) || !is_dir(dirname($argv[2]))) {
+        throw new RuntimeException('Token output must be a new file in an existing private directory.');
+    }
+    $stage = 'listener';
+    $server = stream_socket_server('tcp://127.0.0.1:0');
+    if ($server === false) { throw new RuntimeException('Local listener failed.'); }
+    $address = stream_socket_get_name($server, false);
+    $redirect = 'http://' . $address . '/oauth2callback';
+    $auth = new GmailAuthorization(...$client);
+    echo "Откройте ссылку в браузере на этом компьютере, войдите в почту отправителя и разрешите отправку писем:\n" . $auth->url($redirect) . "\nОжидание до 5 минут. Токены в терминал не выводятся.\n";
+    $deadline = time() + 300;
+    $stage = 'callback';
+    $code = null;
+    while (time() < $deadline) {
+        $connection = stream_socket_accept($server, max(1, $deadline - time()));
+        if ($connection === false) { throw new RuntimeException('Authorization timed out.'); }
+        stream_set_timeout($connection, 5);
+        $line = fgets($connection, 8192);
+        $size = is_string($line) ? strlen($line) : 0;
+        while (($header = fgets($connection, 8192)) !== false && trim($header) !== '') {
+            $size += strlen($header);
+            if ($size > 16384) { throw new RuntimeException('Invalid callback request.'); }
+        }
+        $success = false;
+        if (is_string($line) && preg_match('#^GET (/oauth2callback\?[^ ]+) HTTP/1\.[01]\r?\n$#D', $line, $match)) {
+            $code = $auth->callback($match[1]);
+            $success = true;
+        }
+        $body = $success ? 'Authorization received. Return to the terminal.' : 'Not found.';
+        fwrite($connection, 'HTTP/1.1 ' . ($success ? '200 OK' : '404 Not Found') . "\r\nContent-Type: text/plain; charset=utf-8\r\nCache-Control: no-store\r\nConnection: close\r\nContent-Length: " . strlen($body) . "\r\n\r\n" . $body);
+        fclose($connection);
+        $connection = null;
+        if ($success) { break; }
+    }
+    if ($code === null) { throw new RuntimeException('Authorization timed out.'); }
+    $stage = 'exchange';
+    $refreshToken = $auth->exchange($code, $redirect);
+    $json = json_encode(['refresh_token' => $refreshToken], JSON_THROW_ON_ERROR) . "\n";
+    $stage = 'save';
+    $file = fopen($argv[2], 'x');
+    if ($file === false || fwrite($file, $json) !== strlen($json) || !fflush($file)) {
+        throw new RuntimeException('Token file could not be saved.');
+    }
+    echo "Авторизация завершена. Refresh token сохранён в заданный файл. Инструкция подключения: docs/GMAIL.md.\n";
+} catch (Throwable $failure) {
+    $diagnostic = $failure instanceof GmailAuthorizationFailure ? $failure->diagnostic() : match ($stage) {
+        'client' => 'Не удалось прочитать Desktop JSON. Проверьте файл и его тип.',
+        'output' => 'Файл токена уже существует либо каталог вывода отсутствует. Старый файл не перезаписывается.',
+        'listener' => 'Не удалось запустить локальный обработчик. Проверьте доступ к loopback и правила межсетевого экрана.',
+        'callback' => 'Не получено корректное согласие из браузера. Запустите команду заново, откройте новую ссылку на этом компьютере и проверьте Test users.',
+        'save' => 'Не удалось сохранить токен. Проверьте права записи и свободное место в каталоге вывода.',
+        default => 'Ошибка обмена кода на токен. Проверьте расширение PHP cURL и настройки HTTPS.',
+    };
+    fwrite(STDERR, "Авторизация Gmail не завершена. Этап: $stage. $diagnostic Подробности: docs/GMAIL.md.\n");
+    $exitCode = 1;
+} finally {
+    foreach ([$connection, $server, $file] as $resource) {
+        if (is_resource($resource)) { fclose($resource); }
+    }
+}
+exit($exitCode);

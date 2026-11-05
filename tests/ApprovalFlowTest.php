@@ -50,108 +50,13 @@ final class ApprovalFlowTest extends TestCase
         $this->click($id, 'reg:submit');
     }
 
-    public function testTestResetRequiresFullRegistrationAndInvalidatesOldApproval(): void
-    {
-        $this->bot = new Kernel($this->store, [99], [100], testMode: true);
-        $this->register();
-        $oldRevision = $this->store->user(1)['revision'];
-        $this->click(100, 'app:approve:1:' . $oldRevision);
-        $this->say(100, '/resetuser 1');
-        $resetUpdate = $this->update;
-        $user = $this->store->user(1);
-        foreach (['name', 'company', 'country', 'phone', 'email', 'edit_field'] as $field) {
-            self::assertSame('', $user[$field]);
-        }
-        self::assertSame('draft', $user['status']);
-        self::assertSame('language', $user['step']);
-        self::assertSame(1, $user['choosing_language']);
-        self::assertSame(0, $user['subscribed']);
-        self::assertSame(0, $user['completed']);
-        self::assertNull($user['submitted_at']);
-        self::assertNull($user['approved_at']);
-        self::assertSame([], $this->store->exportUsers());
-        self::assertFalse($this->store->contactTaken('phone', '+447700900001', 2));
-        self::assertFalse($this->store->contactTaken('email', 'USER1@example.com', 2));
-        $this->bot->handle(['update_id' => $resetUpdate, 'message' => ['from' => ['id' => 100], 'chat' => ['id' => 100, 'type' => 'private'], 'text' => '/resetuser 1']]);
-        self::assertSame($user, $this->store->user(1));
-        $this->click(1, 'reg:submit');
-        self::assertSame('draft', $this->store->user(1)['status']);
-        $this->say(1, '/start');
-        $this->click(1, 'language:FR');
-        $this->click(1, 'reg:begin');
-        self::assertSame('name', $this->store->user(1)['step']);
-        $this->say(1, 'New Name');
-        self::assertSame('company', $this->store->user(1)['step']);
-        $this->say(1, 'New Company');
-        self::assertSame('phone', $this->store->user(1)['step']);
-        $this->say(1, '+447700900001');
-        $this->click(1, 'reg:country:other');
-        $this->say(1, 'France');
-        self::assertSame('email', $this->store->user(1)['step']);
-        $this->say(1, 'new@example.com');
-        $this->click(1, 'reg:submit');
-        self::assertSame('pending', $this->store->user(1)['status']);
-        $this->click(100, 'app:approve:1:' . $oldRevision);
-        self::assertSame('pending', $this->store->user(1)['status']);
-        $this->click(100, 'app:approve:1:' . $this->store->user(1)['revision']);
-        self::assertSame('approved', $this->store->user(1)['status']);
-        self::assertSame('New Name', $this->store->user(1)['name']);
-    }
-
-    public static function forbiddenTestResets(): array
-    {
-        return [[false, 100], [false, 99], [true, 99], [true, 1]];
-    }
-
-    #[DataProvider('forbiddenTestResets')]
-    public function testTestResetCannotBeUsedOutsideTestSuperadmin(bool $testMode, int $actor): void
+    public function testRemovedResetCommandDoesNotChangeRegistration(): void
     {
         $this->register();
-        $this->bot = new Kernel($this->store, [99], [100], testMode: $testMode);
         $before = $this->store->user(1);
-        $this->say($actor, '/resetuser 1');
+        $this->say(100, '/resetuser 1');
         self::assertSame($before, $this->store->user(1));
         self::assertTrue($this->store->contactTaken('email', 'user1@example.com', 2));
-    }
-
-    public function testTestResetCancelsOldUserJobsAndLeavesOtherUsersAlone(): void
-    {
-        $this->bot = new Kernel($this->store, [99], [100], testMode: true);
-        $this->store->queueComment(1, 'RU', 'Failed old comment', 'Prefix', 100);
-        $failedJob = $this->store->nextJob(time());
-        $this->store->deferJob($failedJob['id'], 5, 0, 'temporary_api_error', true);
-        $this->register();
-        $this->register(2);
-        $other = $this->store->user(2);
-        $this->click(100, 'app:approve:1:' . $this->store->user(1)['revision']);
-        $this->say(99, 'Old announcement');
-        $this->say(99, 'Subject');
-        $this->click(99, 'draft:submit:1:' . $this->store->draft(1)['version']);
-        $this->click(100, 'draft:approve:1:' . $this->store->draft(1)['version']);
-        $this->store->queueComment(1, 'RU', 'Old comment', 'Prefix', 100);
-        $this->say(100, '/resetuser 1');
-        self::assertSame($other, $this->store->user(2));
-        self::assertFalse($this->store->retryAuxiliaryJob($failedJob['id'], 100, true));
-        self::assertTrue($this->store->contactTaken('email', 'user2@example.com', 1));
-        self::assertFalse($this->store->retryBroadcast(1));
-        $messages = [];
-        $telegram = $this->createMock(TelegramGateway::class);
-        $telegram->method('sendMessage')->willReturnCallback(static function (int $id, string $text) use (&$messages): void {
-            if ($id === 1) {
-                $messages[] = $text;
-            }
-        });
-        $translator = $this->createMock(Translator::class);
-        $translator->method('translate')->willReturn('Translation');
-        $mailer = $this->createMock(\Broadcast\Application\MailGateway::class);
-        $mailer->expects(self::never())->method('send');
-        $worker = new Worker($this->store, $telegram, $translator, mail: $mailer);
-        $now = time();
-        for ($i = 0; $i < 100 && $worker->tick($now += 60); ++$i) {}
-        self::assertLessThan(100, $i);
-        self::assertSame([\Broadcast\Application\Messages::text('RU', 'test_reset_user')], $messages);
-        $this->say(100, '/resetuser 999');
-        self::assertNull($this->store->user(999));
     }
 
     public function testRegistrationRequiresApprovalInAllLanguages(): void

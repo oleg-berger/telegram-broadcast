@@ -1,0 +1,39 @@
+# OAuth files are mounted read-only, never copied into the image.
+# Authorize locally first: see docs/GMAIL.md.
+services:
+  poll:
+    environment:
+      MAIL_TRANSPORT: gmail
+      GMAIL_OAUTH_CLIENT_FILE: /run/secrets/gmail-client.json
+      GMAIL_OAUTH_TOKEN_FILE: /run/secrets/gmail-token.json
+    volumes:
+      - type: bind
+        source: ./secrets/gmail-client.json
+        target: /run/secrets/gmail-client.json
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./secrets/gmail-token.json
+        target: /run/secrets/gmail-token.json
+        read_only: true
+        bind:
+          create_host_path: false
+  worker:
+    environment:
+      MAIL_TRANSPORT: gmail
+      GMAIL_OAUTH_CLIENT_FILE: /run/secrets/gmail-client.json
+      GMAIL_OAUTH_TOKEN_FILE: /run/secrets/gmail-token.json
+    volumes:
+      - type: bind
+        source: ./secrets/gmail-client.json
+        target: /run/secrets/gmail-client.json
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./secrets/gmail-token.json
+        target: /run/secrets/gmail-token.json
+        read_only: true
+        bind:
+          create_host_path: false

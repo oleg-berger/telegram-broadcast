@@ -18,8 +18,14 @@ final class CurlHttpClientTest extends TestCase
         }, E_DEPRECATED);
 
         try {
-            $this->expectException(HttpTransportException::class);
-            (new CurlHttpClient())->post('https://127.0.0.1:1', [], '', 1);
+            try {
+                (new CurlHttpClient())->post('https://127.0.0.1:1', [], '', 1);
+                self::fail('Unreachable endpoint accepted.');
+            } catch (HttpTransportException $failure) {
+                self::assertIsInt($failure->transportCode);
+                self::assertGreaterThan(0, $failure->transportCode);
+                self::assertStringNotContainsString('127.0.0.1', $failure->getMessage());
+            }
         } finally {
             restore_error_handler();
         }

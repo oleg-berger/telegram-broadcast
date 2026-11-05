@@ -7,7 +7,7 @@ use Broadcast\Domain\TextParts;
 
 final class Staff
 {
-    public function __construct(private Store $store, private array $superadmins, private bool $adminsCanApprove, private bool $adminsCanExport, private bool $testMode = false) {}
+    public function __construct(private Store $store, private array $superadmins, private bool $adminsCanApprove, private bool $adminsCanExport) {}
 
     private function super(int $id): bool
     {
@@ -42,10 +42,14 @@ final class Staff
             $draft = $this->store->draft($session['id']);
             if (!$draft || $draft['status'] !== 'pending' || $draft['version'] !== $session['version']) { $this->stale($id); return; }
             $this->store->saveDraft($draft['id'], $draft['version'], ['status' => 'changes']);
-            $this->reply($draft['admin_id'], '✏️ Объявление #' . $draft['id'] . " возвращено на доработку.\n" . $text);
-            $this->preview($draft['admin_id'], $this->store->draft($draft['id']));
+            $draft = $this->store->draft($draft['id']);
+            $buttons = [];
+            foreach (['text', 'subject'] as $field) {
+                $buttons[] = [['text' => Messages::text('RU', 'draft_edit_' . $field), 'callback_data' => 'draft:' . $field . ':' . $draft['id'] . ':' . $draft['version']]];
+            }
+            $this->reply($draft['admin_id'], Messages::text('RU', 'draft_returned', ['comment' => $text]), $buttons);
             $this->store->saveSession($id, null);
-            $this->reply($id, 'Комментарий отправлен автору.');
+            $this->reply($id, Messages::text('RU', 'draft_return_sent'));
             return;
         }
         if ($session && in_array($session['kind'], ['draft:subject', 'draft:text'], true)) {
@@ -53,7 +57,7 @@ final class Staff
             if (!$draft || $draft['admin_id'] !== $id || !in_array($draft['status'], ['draft', 'changes'], true) || $draft['version'] !== $session['version']) { $this->stale($id); return; }
             $field = $session['kind'] === 'draft:subject' ? 'subject' : 'text';
             if ($field === 'subject' && (mb_strlen($text) > 200 || preg_match('/[\r\n]/', $text))) {
-                $this->reply($id, 'Укажите тему одной строкой, до 200 символов.');
+                $this->reply($id, Messages::text('RU', 'draft_subject_invalid'));
                 return;
             }
             $this->store->saveDraft($draft['id'], $draft['version'], [$field => $text]);
@@ -63,26 +67,11 @@ final class Staff
         }
         $draft = $this->store->createDraft($id, $text);
         $this->store->saveSession($id, ['kind' => 'draft:subject', 'id' => $draft['id'], 'version' => $draft['version']]);
-        $this->reply($id, '✉️ Черновик #' . $draft['id'] . " сохранён. Введите тему письма одной строкой (до 200 символов).\n/cancel — отменить черновик");
+        $this->reply($id, Messages::text('RU', 'draft_subject_prompt', $draft));
     }
 
     private function command(int $id, string $text): void
     {
-        if (preg_match('/^\/resetuser\s+([1-9][0-9]*)$/D', $text, $match)) {
-            if (!$this->testMode || !$this->super($id)) {
-                $this->reply($id, Messages::text('RU', 'test_reset_unavailable'));
-                return;
-            }
-            $userId = filter_var($match[1], FILTER_VALIDATE_INT);
-            $user = $userId === false ? null : $this->store->user($userId);
-            if (!$user || !$this->store->resetTestUser($userId)) {
-                $this->reply($id, Messages::text('RU', 'test_reset_not_found'));
-                return;
-            }
-            $this->store->queueReply($userId, Messages::text($user['language'], 'test_reset_user'), ['reply_markup' => ['remove_keyboard' => true]]);
-            $this->reply($id, Messages::text('RU', 'test_reset_done', ['id' => $userId]));
-            return;
-        }
         if (preg_match('/^\/retryjob\s+([1-9][0-9]*)$/D', $text, $match)) {
             if (!$this->approveUsers($id) && !$this->adminsCanExport) { $this->reply($id, 'Недостаточно прав.'); return; }
             $this->reply($id, $this->store->retryAuxiliaryJob((int) $match[1], $id, $this->super($id)) ? 'Задание поставлено на повтор.' : 'Задание недоступно или не содержит ошибки.');
@@ -134,11 +123,11 @@ final class Staff
             return;
         }
         $help = "📝 Отправьте текст объявления, затем тему письма. Рассылка начнётся только после одобрения суперадминистратором.\n/draft ID — открыть черновик\n/retry ID — повторить ошибки рассылки\n/cancel — отменить ввод\n/help — помощь";
+        if ($this->super($id)) { $help = Messages::text('RU', 'superadmin_broadcast_help'); }
         if ($this->approveUsers($id)) { $help .= "\n/requests [ID] — заявки пользователей"; }
         if ($this->super($id) || $this->adminsCanExport) { $help .= "\n/userdata — общая база Excel"; }
         if ($this->approveUsers($id) || $this->adminsCanExport) { $help .= "\n/retryjob ID — повторить ошибку комментария или Excel"; }
         if ($this->super($id)) { $help .= "\n/unsubscribe ID — отписать пользователя"; }
-        if ($this->testMode && $this->super($id)) { $help .= "\n" . Messages::text('RU', 'test_reset_help'); }
         $this->reply($id, $help);
     }
 
@@ -165,7 +154,7 @@ final class Staff
             }
             return;
         }
-        if (!preg_match('/^draft:(submit|approve|return|text|subject|cancel):([1-9][0-9]*):([0-9]+)$/D', $data, $match)) { return; }
+        if (!preg_match('/^draft:(send|submit|approve|return|text|subject|cancel):([1-9][0-9]*):([0-9]+)$/D', $data, $match)) { return; }
         [$all, $action, $draftId, $version] = $match;
         $draft = $this->store->draft((int) $draftId);
         if (!$draft || $draft['version'] !== (int) $version) { $this->stale($id); return; }
@@ -189,8 +178,13 @@ final class Staff
             $this->reply($id, 'Изменение недоступно. Дождитесь возврата на доработку.');
             return;
         }
+        if ($action === 'send' || ($action === 'submit' && $this->super($id))) {
+            if (!$this->super($id)) { $this->reply($id, Messages::text('RU', 'draft_send_denied')); return; }
+            $this->sendOwnDraft($id, $draft);
+            return;
+        }
         if ($action === 'submit') {
-            if (trim($draft['subject']) === '') { $this->reply($id, 'Сначала укажите тему письма.'); return; }
+            if (trim($draft['subject']) === '') { $this->reply($id, Messages::text('RU', 'draft_subject_required')); return; }
             $this->store->saveDraft($draft['id'], $draft['version'], ['status' => 'pending']);
             $this->store->saveSession($id, null);
             $author = $this->authorLabel($id, $from);
@@ -202,7 +196,38 @@ final class Staff
             $this->reply($id, 'Черновик отменён.');
         } else {
             $this->store->saveSession($id, ['kind' => 'draft:' . $action, 'id' => $draft['id'], 'version' => $draft['version']]);
-            $this->reply($id, $action === 'text' ? 'Введите новый текст объявления.' : 'Введите тему письма одной строкой (до 200 символов).');
+            $this->editPrompt($id, $draft[$action]);
+        }
+    }
+
+    private function sendOwnDraft(int $id, array $draft): void
+    {
+        if (trim($draft['subject']) === '') {
+            $this->reply($id, Messages::text('RU', 'draft_subject_required'));
+            return;
+        }
+        // Both transitions and the audience snapshot belong to the current Kernel transaction.
+        if (!$this->store->saveDraft($draft['id'], $draft['version'], ['status' => 'pending'])) {
+            $this->stale($id);
+            return;
+        }
+        $broadcast = $this->store->approveDraft($draft['id'], $draft['version'] + 1, $id);
+        $this->store->saveSession($id, null);
+        if ($broadcast) {
+            $this->reply($id, Messages::text('RU', 'broadcast_started', $broadcast));
+        }
+    }
+
+    private function editPrompt(int $id, string $value): void
+    {
+        $this->reply($id, Messages::text('RU', 'draft_edit_prompt'));
+        $parts = TextParts::split($value);
+        foreach ($parts as $i => $part) {
+            $options = ['entities' => [['type' => 'pre', 'offset' => 0, 'length' => intdiv(strlen(mb_convert_encoding($part, 'UTF-16LE', 'UTF-8')), 2)]]];
+            if ($i === count($parts) - 1) {
+                $options['reply_markup'] = ['force_reply' => true, 'input_field_placeholder' => Messages::text('RU', 'draft_edit_placeholder')];
+            }
+            $this->store->queueReply($id, $part, $options);
         }
     }
 
@@ -212,7 +237,10 @@ final class Staff
         $user = $this->store->user($session['id']);
         $status = $session['kind'] === 'app:reject' ? 'rejected' : 'changes';
         if (!$user || !$this->store->decideApplication($user['id'], $session['revision'], $status, $id)) { $this->stale($id); return; }
-        $this->store->queueComment($user['id'], $user['language'], $text, Messages::text($user['language'], $status), $id);
+        $options = $status === 'changes' ? ['reply_markup' => ['inline_keyboard' => [[
+            ['text' => Messages::text($user['language'], 'edit'), 'callback_data' => 'reg:edit'],
+        ]]]] : [];
+        $this->store->queueComment($user['id'], $user['language'], $text, Messages::text($user['language'], $status), $id, $options);
         $this->store->saveSession($id, null);
         $this->reply($id, 'Решение сохранено. Комментарий поставлен на перевод и доставку.');
     }
@@ -231,16 +259,23 @@ final class Staff
     {
         $rows = [];
         $suffix = $draft['id'] . ':' . $draft['version'];
+        $ownEditable = $draft['admin_id'] === $id && in_array($draft['status'], ['draft', 'changes'], true);
+        $direct = $ownEditable && $this->super($id);
         if ($draft['status'] === 'pending' && $this->super($id)) {
-            $actions = ['approve' => '✅ Одобрить и разослать', 'return' => '✏️ Вернуть на доработку'];
-        } elseif ($draft['admin_id'] === $id && in_array($draft['status'], ['draft', 'changes'], true)) {
-            $actions = ['submit' => '📨 На согласование', 'text' => '✏️ Изменить текст', 'subject' => '✏️ Изменить тему', 'cancel' => 'Отменить черновик'];
+            $actions = ['approve' => 'draft_approve', 'return' => 'draft_return'];
+        } elseif ($ownEditable) {
+            $actions = [$direct ? 'send' : 'submit' => $direct ? 'draft_send' : 'draft_submit', 'text' => 'draft_edit_text', 'subject' => 'draft_edit_subject', 'cancel' => 'draft_cancel'];
         } else {
             $actions = [];
         }
-        foreach ($actions as $action => $label) { $rows[] = [['text' => $label, 'callback_data' => 'draft:' . $action . ':' . $suffix]]; }
+        foreach ($actions as $action => $key) { $rows[] = [['text' => Messages::text('RU', $key), 'callback_data' => 'draft:' . $action . ':' . $suffix]]; }
+        $content = Messages::text('RU', 'draft_subject_label') . ' ' . $draft['subject'] . "\n\n" . $draft['text'];
+        if ($direct) {
+            $this->reply($id, $content . "\n\n" . Messages::text('RU', 'draft_send_prompt'), $rows);
+            return;
+        }
         $signature = $this->super($id) ? "\n" . Messages::text('RU', 'draft_author', ['author' => $author ?? (string) $draft['admin_id']]) : '';
-        $this->reply($id, 'Объявление #' . $draft['id'] . ' · ' . $draft['status'] . $signature . "\nТема: " . $draft['subject'] . "\n\n" . $draft['text'], $rows);
+        $this->reply($id, Messages::text('RU', 'draft_preview_header', ['id' => $draft['id'], 'status' => $draft['status']]) . $signature . "\n" . $content, $rows);
     }
 
     private function stale(int $id): void

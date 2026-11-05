@@ -8,7 +8,7 @@ use RuntimeException;
 
 final class HttpTransportException extends RuntimeException
 {
-    public function __construct(string $message, public readonly bool $timeout = false)
+    public function __construct(string $message, public readonly bool $timeout = false, public readonly ?int $transportCode = null)
     {
         parent::__construct($message);
     }

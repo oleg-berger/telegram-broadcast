@@ -29,6 +29,33 @@ final class TelegramClient implements TelegramGateway
         ]);
     }
 
+    public function sendPhoto(int $chatId, string $path, string $caption): void
+    {
+        $contents = file_get_contents($path);
+        if ($contents === false) { throw new ApiFailure('Telegram photo is unavailable.'); }
+        $boundary = 'bot-' . bin2hex(random_bytes(16));
+        $body = "--$boundary\r\nContent-Disposition: form-data; name=\"chat_id\"\r\n\r\n$chatId\r\n"
+            . "--$boundary\r\nContent-Disposition: form-data; name=\"caption\"\r\n\r\n$caption\r\n"
+            . "--$boundary\r\nContent-Disposition: form-data; name=\"photo\"; filename=\"help-card.png\"\r\nContent-Type: image/png\r\n\r\n"
+            . $contents . "\r\n--$boundary--\r\n";
+        try {
+            $response = $this->http->post(self::API_BASE . '/bot' . $this->token . '/sendPhoto', ['Content-Type' => 'multipart/form-data; boundary=' . $boundary], $body, 30);
+        } catch (HttpTransportException) {
+            throw new ApiFailure('Telegram photo upload failed.', true);
+        }
+        try {
+            $decoded = json_decode($response->body, true, flags: JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            if ($response->status >= 400) { throw $this->apiFailure($response->status); }
+            throw new ApiFailure('Telegram returned an invalid response.', true);
+        }
+        if ($response->status >= 400 || ($decoded['ok'] ?? false) !== true) {
+            $code = is_int($decoded['error_code'] ?? null) ? $decoded['error_code'] : $response->status;
+            $retry = $decoded['parameters']['retry_after'] ?? null;
+            throw $this->apiFailure($code, is_int($retry) ? $retry : null);
+        }
+    }
+
     public function getUpdates(int $offset, int $timeout = 25): array
     {
         $result = $this->call('getUpdates', [

@@ -35,7 +35,9 @@ final class Worker
                 'translate' => $this->translate($job),
                 'translate_subject' => $this->translateSubject($job),
                 'delivery' => $this->deliver($job, $now),
+                'channel_post' => $this->channelPost($job),
                 'message' => $this->message($job),
+                'photo' => $this->photo($job),
                 'callback' => $this->callback($job),
                 'comment' => $this->comment($job),
                 'export' => $this->export($job),
@@ -49,7 +51,7 @@ final class Worker
             // Error text is deliberately not persisted: upstream responses can echo personal data.
             $this->store->deferJob($job['id'], $attempts, $now + max($failure->retryAfter ?? 0, 2 ** $attempts), $error, $failed);
             $this->log($failed ? 'job_failed' : 'job_deferred', $job, $attempts);
-            if ($failure->blocked && $job['user_id'] !== null) { $this->store->disableSubscriber($job['user_id']); }
+            if ($failure->blocked && $job['user_id'] !== null && $job['user_id'] > 0) { $this->store->disableSubscriber($job['user_id']); }
             if ($failed && in_array($job['kind'], ['translate', 'translate_subject'], true)) {
                 $broadcast = $this->store->broadcast($job['broadcast_id']);
                 if ($broadcast['approved_by']) {
@@ -69,6 +71,9 @@ final class Worker
     {
         if ($this->logger === null) { return; }
         $record = ['event' => $event, 'job_id' => $job['id'], 'kind' => $job['kind']];
+        if ($job['broadcast_id'] !== null) {
+            $record += ['broadcast_id' => $job['broadcast_id'], 'channel' => $job['channel'], 'language' => $job['language']];
+        }
         if ($attempt !== null) { $record['attempt'] = $attempt; }
         ($this->logger)($record);
     }
@@ -115,6 +120,28 @@ final class Worker
         $this->sendParts($job, $job['payload']['text'], $job['payload']['options']);
     }
 
+    private function channelPost(array $job): void
+    {
+        $broadcast = $this->store->broadcast($job['broadcast_id']);
+        if ($broadcast === null || !$broadcast['approved_by'] || $broadcast['team_channel_id'] !== $job['user_id']) {
+            throw new ApiFailure('Channel publication is not approved.');
+        }
+        $text = $this->store->translation($job['broadcast_id'], 'RU');
+        $subject = $this->store->translationSubject($job['broadcast_id'], 'RU');
+        if ($text === null || trim($text) === '' || $subject === null || trim($subject) === '') {
+            throw new ApiFailure('Russian channel translation is unavailable.', true);
+        }
+        $this->sendParts($job, $subject . "\n\n" . $text);
+    }
+
+    private function photo(array $job): void
+    {
+        $path = dirname(__DIR__, 2) . '/assets/help-card.png';
+        if (!is_file($path)) { throw new ApiFailure('Help image is unavailable.'); }
+        $this->telegram->sendPhoto($job['user_id'], $path, $job['payload']['caption']);
+        $this->store->completeJob($job['id']);
+    }
+
     private function sendParts(array $job, string $text, array $options = []): void
     {
         $parts = TextParts::split($text);
@@ -142,7 +169,7 @@ final class Worker
             return;
         }
         // The original comment is never substituted for a missing translation.
-        $this->sendParts($job, $payload['prefix'] . "\n\n" . $payload['translated']);
+        $this->sendParts($job, $payload['prefix'] . "\n\n" . $payload['translated'], $payload['options'] ?? []);
     }
 
     private function export(array $job): void

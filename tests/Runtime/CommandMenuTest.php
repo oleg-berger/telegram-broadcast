@@ -20,8 +20,7 @@ final class CommandMenuTest extends TestCase
             'TELEGRAM_ADMIN_IDS' => '42',
             'TELEGRAM_SUPERADMIN_IDS' => '900719',
             'TRANSLATOR_API_KEY' => 'key',
-            'TRANSLATOR_API_URL' => 'https://api.deepseek.com',
-            'TRANSLATOR_MODEL' => 'deepseek-chat',
+            'TRANSLATOR_API_URL' => 'https://api-free.deepl.com',
             'DATABASE_PATH' => '/data/app.sqlite',
             'SMTP_HOST' => 'smtp.example.com',
             'SMTP_PORT' => '587',
@@ -58,8 +57,7 @@ final class CommandMenuTest extends TestCase
             'TELEGRAM_ADMIN_IDS' => '42',
             'TELEGRAM_SUPERADMIN_IDS' => '900719',
             'TRANSLATOR_API_KEY' => 'key',
-            'TRANSLATOR_API_URL' => 'https://api.deepseek.com',
-            'TRANSLATOR_MODEL' => 'deepseek-chat',
+            'TRANSLATOR_API_URL' => 'https://api-free.deepl.com',
             'DATABASE_PATH' => '/data/app.sqlite',
             'SMTP_HOST' => 'smtp.example.com',
             'SMTP_PORT' => '587',
@@ -85,6 +83,7 @@ final class FakeMenuGateway implements TelegramGateway
     public function getUpdates(int $offset, int $timeout = 25): array { return []; }
     public function answerCallbackQuery(string $id): void {}
     public function sendDocument(int $chatId, string $path, string $filename): void {}
+    public function sendPhoto(int $chatId, string $path, string $caption): void {}
     public function setCommands(array $commands, array $scope = ['type' => 'default'], string $language = ''): void
     {
         if ($this->permanent) { $this->failedAttempts++; throw new ApiFailure('permanent'); }
