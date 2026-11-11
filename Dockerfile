@@ -27,15 +27,15 @@ COPY bin/ bin/
 COPY public/ public/
 RUN groupadd --gid 1000 bot \
     && useradd --uid 1000 --gid bot --no-create-home bot \
-    && mkdir -p /data \
-    && chown bot:bot /data \
-    && chmod 700 /data
+    && mkdir -p /data /attachments /private-links \
+    && chown bot:bot /data /attachments /private-links \
+    && chmod 700 /data /attachments /private-links
 USER bot
 ENV DATABASE_PATH=/data/broadcast.sqlite
 ENTRYPOINT ["php", "bin/console"]
 CMD ["worker"]
 
-# This process receives only download settings and a read-only data volume, never bot/mail secrets.
+# This process gets read-only SQL access and blobs; the signing-key volume is never mounted.
 FROM php:8.4-fpm-bookworm AS download
 WORKDIR /app
 COPY --from=application /app/vendor/ vendor/

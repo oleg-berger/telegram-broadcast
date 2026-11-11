@@ -16,7 +16,12 @@ try {
     $baseUrl = getenv('ATTACHMENTS_PUBLIC_BASE_URL');
     if (!$database || !$storagePath || !$baseUrl || !is_file($database)) { throw new RuntimeException(); }
     $storage = new LocalAttachmentStorage($storagePath);
-    $links = new SqliteAttachmentLinks($database,$storage,$baseUrl);
+    $databasePath = realpath($database);
+    if ($databasePath === false) { throw new RuntimeException(); }
+    $databaseUri = str_replace(['%2F','%3A','%5C'], ['/',':','/'], rawurlencode($databasePath));
+    $reader = new PDO('sqlite:file:' . $databaseUri . '?mode=ro');
+    $reader->exec('PRAGMA query_only=ON');
+    $links = new SqliteAttachmentLinks($reader,$storage,$baseUrl);
     (new AttachmentDownload($links,$storage))->serve($_SERVER['REQUEST_METHOD'] ?? '',is_string($_GET['token'] ?? null) ? $_GET['token'] : '',time(),
         static function (int $status,array $headers): void {
             http_response_code($status);

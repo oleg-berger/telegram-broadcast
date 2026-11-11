@@ -99,7 +99,7 @@ try {
     $poller = new Poller($store, $telegram, new Kernel($store, $config->adminIds, $config->superadminIds, $config->adminsCanApproveUsers, $config->adminsCanExportUsers));
     $attachments = $attachmentConfig->attachmentPath !== null ? new LocalAttachmentStorage($attachmentConfig->attachmentPath) : null;
     $attachmentLinks = $attachments !== null && $attachmentConfig->publicBaseUrl !== null
-        ? new SqliteAttachmentLinks($path, $attachments, $attachmentConfig->publicBaseUrl) : null;
+        ? new SqliteAttachmentLinks($path, $attachments, $attachmentConfig->publicBaseUrl, $attachmentConfig->linkKeyFile) : null;
     $worker = new Worker($store, $telegram, new OpenAiTranslator($config->translatorApiKey, $config->translatorApiUrl, $config->translatorModel, $config->translatorTemperature),
         static function (array $event) use ($log): void {
             $name = $event['event'];

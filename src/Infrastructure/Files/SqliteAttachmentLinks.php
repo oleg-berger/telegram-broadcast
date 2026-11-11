@@ -18,7 +18,7 @@ final class SqliteAttachmentLinks implements AttachmentLinks
     private ?string $key = null;
     private static ?\WeakMap $memoryKeys = null;
 
-    public function __construct(PDO|string $database, private AttachmentStorage $storage, string $publicBaseUrl)
+    public function __construct(PDO|string $database, private AttachmentStorage $storage, string $publicBaseUrl, ?string $signingKeyFile = null)
     {
         $url = parse_url($publicBaseUrl);
         if (!is_array($url) || ($url['scheme'] ?? '') !== 'https' || ($url['host'] ?? '') === ''
@@ -35,6 +35,10 @@ final class SqliteAttachmentLinks implements AttachmentLinks
             $this->db->exec('PRAGMA busy_timeout=5000');
             foreach ($this->db->query('PRAGMA database_list')->fetchAll(PDO::FETCH_ASSOC) as $entry) {
                 if ($entry['name'] === 'main' && $entry['file'] !== '') { $this->keyPath = $entry['file'] . '.attachment-links.key'; }
+            }
+            if ($signingKeyFile !== null) {
+                if (trim($signingKeyFile) === '' || str_contains($signingKeyFile, "\0")) { throw new \RuntimeException(); }
+                $this->keyPath = $signingKeyFile;
             }
         } catch (\Throwable) {
             throw new ApiFailure('Attachment link storage unavailable.', true);
