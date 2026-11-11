@@ -29,9 +29,13 @@ final class Staff
 
     public function message(int $id, array $message): void
     {
+        if (isset($message['document']) || isset($message['photo'])) {
+            $this->receiveAttachment($id, $message);
+            return;
+        }
         $text = trim($message['text'] ?? '');
         if ($text === '' || !isset($message['text'])) {
-            $this->reply($id, 'Поддерживается только обычный текст. Вложения не рассылаются.');
+            $this->reply($id, Messages::text('RU', 'attachment_input_help'));
             return;
         }
         if (str_starts_with($text, '/')) { $this->command($id, $text); return; }
@@ -72,6 +76,11 @@ final class Staff
 
     private function command(int $id, string $text): void
     {
+        if ($text === '/done') {
+            $draft = $this->store->latestEditableDraft($id);
+            if ($draft) { $this->preview($id, $draft); }
+            return;
+        }
         if ($text === '/links' || str_starts_with($text, '/linkresolve')) {
             if (!$this->super($id)) { $this->reply($id, 'Недостаточно прав.'); return; }
             if ($text === '/links') {
@@ -107,8 +116,7 @@ final class Staff
             return;
         }
         if (preg_match('/^\/retryjob\s+([1-9][0-9]*)$/D', $text, $match)) {
-            if (!$this->approveUsers($id) && !$this->adminsCanExport) { $this->reply($id, 'Недостаточно прав.'); return; }
-            $this->reply($id, $this->store->retryAuxiliaryJob((int) $match[1], $id, $this->super($id)) ? 'Задание поставлено на повтор.' : 'Задание недоступно или не содержит ошибки.');
+            $this->reply($id, $this->store->retryAuxiliaryJob((int) $match[1], $id, $this->super($id), $this->approveUsers($id) || $this->adminsCanExport) ? 'Задание поставлено на повтор.' : 'Задание недоступно или не содержит ошибки.');
             return;
         }
         if (preg_match('/^\/unsubscribe\s+([1-9][0-9]*)$/D', $text, $match)) {
@@ -168,6 +176,12 @@ final class Staff
 
     public function callback(int $id, string $data, array $from = []): void
     {
+        if (preg_match('/^draft:remove:([1-9][0-9]*):([0-9]+):([1-9][0-9]*)$/D', $data, $remove)) {
+            $draft = $this->store->draft((int) $remove[1]);
+            if (!$draft || $draft['admin_id'] !== $id || !$this->store->removeDraftAttachment($draft['id'], (int) $remove[2], (int) $remove[3])) { $this->stale($id); return; }
+            $this->preview($id, $this->store->draft($draft['id']));
+            return;
+        }
         if (preg_match('/^app:(approve|changes|reject|reopen):([1-9][0-9]*):([0-9]+)$/D', $data, $match)) {
             if (!$this->approveUsers($id)) { $this->reply($id, 'Недостаточно прав.'); return; }
             [$all, $action, $userId, $revision] = $match;
@@ -190,7 +204,7 @@ final class Staff
             }
             return;
         }
-        if (!preg_match('/^draft:(send|submit|approve|return|text|subject|cancel):([1-9][0-9]*):([0-9]+)$/D', $data, $match)) { return; }
+        if (!preg_match('/^draft:(send|submit|approve|return|text|subject|cancel|files|finish):([1-9][0-9]*):([0-9]+)$/D', $data, $match)) { return; }
         [$all, $action, $draftId, $version] = $match;
         $draft = $this->store->draft((int) $draftId);
         if (!$draft || $draft['version'] !== (int) $version) { $this->stale($id); return; }
@@ -205,7 +219,8 @@ final class Staff
             $broadcast = $this->store->approveDraft($draft['id'], $draft['version'], $id);
             if ($broadcast) {
                 foreach (array_unique([$id, $draft['admin_id']]) as $staff) {
-                    $this->reply($staff, Messages::text('RU', $this->super($staff) ? 'broadcast_approved_staff' : 'broadcast_approved_author', $broadcast));
+                    $key = $this->store->directoryEnabled() ? 'broadcast_audience_preparing' : ($this->super($staff) ? 'broadcast_approved_staff' : 'broadcast_approved_author');
+                    $this->reply($staff, Messages::text('RU', $key, $broadcast));
                 }
             }
             return;
@@ -214,6 +229,12 @@ final class Staff
             $this->reply($id, 'Изменение недоступно. Дождитесь возврата на доработку.');
             return;
         }
+        if ($action === 'files') {
+            $this->store->saveSession($id, ['kind' => 'draft:files', 'id' => $draft['id'], 'version' => $draft['version']]);
+            $this->reply($id, Messages::text('RU', 'attachment_input_help'));
+            return;
+        }
+        if ($action === 'finish') { $this->preview($id, $draft); return; }
         if ($action === 'send' || ($action === 'submit' && $this->super($id))) {
             if (!$this->super($id)) { $this->reply($id, Messages::text('RU', 'draft_send_denied')); return; }
             $this->sendOwnDraft($id, $draft);
@@ -221,6 +242,7 @@ final class Staff
         }
         if ($action === 'submit') {
             if (trim($draft['subject']) === '') { $this->reply($id, Messages::text('RU', 'draft_subject_required')); return; }
+            if (!$this->store->draftReady($draft['id'])) { $this->reply($id, Messages::text('RU', 'attachment_wait')); return; }
             $this->store->saveDraft($draft['id'], $draft['version'], ['status' => 'pending']);
             $this->store->saveSession($id, null);
             $author = $this->authorLabel($id, $from);
@@ -242,6 +264,11 @@ final class Staff
             $this->reply($id, Messages::text('RU', 'draft_subject_required'));
             return;
         }
+        if (!$this->store->draftReady($draft['id'])) { $this->reply($id, Messages::text('RU', 'attachment_wait')); return; }
+        if ($this->store->draftAttachments($draft['id']) !== [] && !$this->store->draftPreviewed($draft['id'], $draft['version'], $id)) {
+            $this->reply($id, Messages::text('RU', 'attachment_wait'));
+            return;
+        }
         // Both transitions and the audience snapshot belong to the current Kernel transaction.
         if (!$this->store->saveDraft($draft['id'], $draft['version'], ['status' => 'pending'])) {
             $this->stale($id);
@@ -250,7 +277,7 @@ final class Staff
         $broadcast = $this->store->approveDraft($draft['id'], $draft['version'] + 1, $id);
         $this->store->saveSession($id, null);
         if ($broadcast) {
-            $this->reply($id, Messages::text('RU', 'broadcast_started', $broadcast));
+            $this->reply($id, Messages::text('RU', $this->store->directoryEnabled() ? 'broadcast_audience_preparing' : 'broadcast_started', $broadcast));
         }
     }
 
@@ -305,13 +332,52 @@ final class Staff
             $actions = [];
         }
         foreach ($actions as $action => $key) { $rows[] = [['text' => Messages::text('RU', $key), 'callback_data' => 'draft:' . $action . ':' . $suffix]]; }
+        if ($ownEditable) { $rows[] = [['text' => Messages::text('RU', 'attachment_add'), 'callback_data' => 'draft:files:' . $suffix]]; }
         $content = Messages::text('RU', 'draft_subject_label') . ' ' . $draft['subject'] . "\n\n" . $draft['text'];
+        $files = $this->store->draftAttachments($draft['id']);
+        if ($files !== [] || $this->store->directoryEnabled()) {
+            if (!$this->store->draftReady($draft['id'])) { $this->reply($id, Messages::text('RU', 'attachment_wait'), [[['text' => Messages::text('RU', 'attachment_finish'), 'callback_data' => 'draft:finish:' . $suffix]]]); return; }
+            if ($ownEditable) {
+                foreach ($files as $file) { $rows[] = [['text' => Messages::text('RU', 'attachment_remove', ['position' => $file['position']]), 'callback_data' => 'draft:remove:' . $suffix . ':' . $file['id']]]; }
+            }
+            $this->store->queueDraftPreview($id, $draft['id'], $draft['version'], $content, ['reply_markup' => ['inline_keyboard' => $rows]]);
+            return;
+        }
+        $content .= "\n\n" . Messages::text('RU', 'draft_audience_counts', $this->store->draftAudienceCounts($draft['admin_id']));
         if ($direct) {
             $this->reply($id, $content . "\n\n" . Messages::text('RU', 'draft_send_prompt'), $rows);
             return;
         }
         $signature = $this->super($id) ? "\n" . Messages::text('RU', 'draft_author', ['author' => $author ?? (string) $draft['admin_id']]) : '';
         $this->reply($id, Messages::text('RU', 'draft_preview_header', ['id' => $draft['id'], 'status' => $draft['status']]) . $signature . "\n" . $content, $rows);
+    }
+
+    private function receiveAttachment(int $id, array $message): void
+    {
+        $session = $this->store->session($id);
+        if ($session && !str_starts_with($session['kind'], 'draft:')) {
+            $this->reply($id, Messages::text('RU', 'attachment_input_help'));
+            return;
+        }
+        $file = $message['document'] ?? null;
+        if ($file === null && is_array($message['photo'] ?? null) && $message['photo'] !== []) {
+            $file = $message['photo'][array_key_last($message['photo'])];
+            $file['file_name'] = 'photo.jpg';
+        }
+        if (!is_array($file) || !is_string($file['file_id'] ?? null) || !is_string($file['file_name'] ?? null)
+            || !is_int($file['file_size'] ?? null) || $file['file_size'] > 20_000_000 || $file['file_size'] < 0) {
+            $this->reply($id, Messages::text('RU', 'attachment_invalid'));
+            return;
+        }
+        $draft = $session && isset($session['id']) ? $this->store->draft($session['id']) : $this->store->latestEditableDraft($id);
+        if ($draft === null) { $draft = $this->store->createDraft($id, ''); }
+        if ($draft['admin_id'] !== $id || !$this->store->stageDraftAttachment($draft['id'], $draft['version'], $file['file_id'], $file['file_name'], $file['file_size'])) {
+            $this->reply($id, Messages::text('RU', 'attachment_invalid')); return;
+        }
+        $draft = $this->store->draft($draft['id']);
+        $this->store->saveSession($id, ['kind' => trim($draft['subject']) === '' ? 'draft:subject' : 'draft:files', 'id' => $draft['id'], 'version' => $draft['version']]);
+        $this->reply($id, Messages::text('RU', trim($draft['subject']) === '' ? 'draft_subject_prompt' : 'attachment_added', $draft));
+        if (isset($message['caption'])) { $this->reply($id, Messages::text('RU', 'attachment_caption_ignored')); }
     }
 
     private function stale(int $id): void

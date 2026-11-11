@@ -57,7 +57,8 @@ final class SuperadminBroadcastTest extends TestCase
 
     private function preview(array $draft): string
     {
-        return Messages::text('RU', 'draft_subject_label') . ' ' . $draft['subject'] . "\n\n" . $draft['text'] . "\n\n" . Messages::text('RU', 'draft_send_prompt');
+        return Messages::text('RU', 'draft_subject_label') . ' ' . $draft['subject'] . "\n\n" . $draft['text'] . "\n\n"
+            . Messages::text('RU', 'draft_audience_counts', $this->store->draftAudienceCounts($draft['admin_id'])) . "\n\n" . Messages::text('RU', 'draft_send_prompt');
     }
 
     private function drain(?string $failedText = null): array
@@ -160,7 +161,7 @@ final class SuperadminBroadcastTest extends TestCase
         self::assertStringNotContainsString('Объявление #', $messages[1]['text']);
         self::assertStringNotContainsString('Автор:', $messages[1]['text']);
         $rows = $messages[1]['options']['reply_markup']['inline_keyboard'];
-        self::assertSame(['draft:send:1:2', 'draft:text:1:2', 'draft:subject:1:2', 'draft:cancel:1:2'], array_column(array_column($rows, 0), 'callback_data'));
+        self::assertSame(['draft:send:1:2', 'draft:text:1:2', 'draft:subject:1:2', 'draft:cancel:1:2', 'draft:files:1:2'], array_column(array_column($rows, 0), 'callback_data'));
         self::assertSame(Messages::text('RU', 'draft_send'), $rows[0][0]['text']);
         foreach (['text', 'subject'] as $field) {
             $this->click(100, 'draft:' . $field . ':1:' . $draft['version']);

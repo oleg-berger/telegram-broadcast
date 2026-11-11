@@ -7,8 +7,15 @@ PHP 8.4+. SQLite. Два процесса: `poll` принимает сообщ�
 Готовый изолированный стенд с локальными Telegram/email описан в
 [инструкции WhatsApp](docs/whatsapp/APPLICATION.md).
 Для реального тестового Telegram → WhatsApp используйте отдельный комплект:
-`docker compose -f compose.whatsapp.yaml up -d --no-build` (после локальной сборки,
+`docker compose -f compose.whatsapp.yaml -f compose.multichannel-local.yaml up -d --no-build` (после локальной сборки,
 описанной в инструкции). Он использует отдельную тестовую базу и Gmail API.
+
+Каталог WhatsApp в MySQL, импорт Excel и отправка файлов описаны в
+[инструкции локальной проверки и передачи разработчику](docs/whatsapp/ROLLOUT-CONTACTS-FILES.md).
+При включённом каталоге WhatsApp-анкета отключена; регистрация Telegram сохранена.
+До десяти файлов по 20 МБ доставляются без изменения содержимого; тема и текст переводятся.
+Для крупных вложений нужны [настроенные HTTPS-ссылки](docs/ATTACHMENTS.md).
+Предоставленные клиентские номера остаются в отдельной базе preview и в тестовых отправках не используются.
 
 ## Возможности
 

@@ -1,0 +1,25 @@
+# For the senior developer: combine with compose.yaml after HTTPS proxy configuration.
+services:
+  downloads:
+    image: telegram-broadcast-downloads:local
+    build:
+      context: .
+      target: download
+    environment:
+      DATABASE_PATH: /data/broadcast.sqlite
+      ATTACHMENTS_PATH: /attachments
+      ATTACHMENTS_PUBLIC_BASE_URL: https://service.imenka.world/download
+    volumes:
+      # SQLite needs to create WAL/SHM files; the endpoint opens the DB with mode=ro and query_only.
+      - bot-data:/data
+      - attachments-data:/attachments:ro
+    ports:
+      - "127.0.0.1:9005:9000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

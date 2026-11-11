@@ -8,11 +8,13 @@ use Broadcast\Infrastructure\Http\HttpResponse;
 final class CurlWhatsAppHttpClient implements WhatsAppHttpClient
 {
     public const int MAX_RESPONSE_BYTES = 3 * 1024 * 1024;
+    public const int MAX_MEDIA_REQUEST_BYTES = 22_435_160;
 
     public function request(string $method, string $url, array $headers, ?string $body, int $timeoutSeconds): HttpResponse
     {
+        $fileRequest = $method === 'POST' && (bool) preg_match('~/api/[A-Za-z0-9_-]{1,64}/send-file\z~', parse_url($url, PHP_URL_PATH) ?: '');
         if (!in_array($method, ['GET', 'POST'], true) || $timeoutSeconds < 1 || $timeoutSeconds > 75
-            || ($body !== null && strlen($body) > 131072)) {
+            || ($body !== null && strlen($body) > ($fileRequest ? self::MAX_MEDIA_REQUEST_BYTES : 131072))) {
             throw new WhatsAppHttpFailure(false);
         }
         $handle = curl_init();
@@ -68,7 +70,7 @@ final class CurlWhatsAppHttpClient implements WhatsAppHttpClient
             throw new WhatsAppHttpFailure(false);
         }
         if (curl_exec($handle) === false) {
-            $beforeSend = in_array(curl_errno($handle), [CURLE_COULDNT_RESOLVE_HOST, CURLE_COULDNT_CONNECT, CURLE_SSL_CONNECT_ERROR, CURLE_PEER_FAILED_VERIFICATION], true);
+            $beforeSend = in_array(curl_errno($handle), [CURLE_COULDNT_RESOLVE_HOST, CURLE_COULDNT_CONNECT, CURLE_SSL_CONNECT_ERROR, CURLE_SSL_CACERT], true);
             throw new WhatsAppHttpFailure(!$beforeSend);
         }
         return new HttpResponse((int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE), $response, $responseHeaders);

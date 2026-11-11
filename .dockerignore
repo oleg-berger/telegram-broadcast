@@ -10,3 +10,4 @@ secrets
 client_secret*.json
 gmail-oauth*.json
 *.zip
+*.attachment-links.key

@@ -3,11 +3,12 @@ declare(strict_types=1);
 
 namespace Broadcast\Infrastructure\WhatsApp;
 
-use Broadcast\Application\WhatsAppGateway;
+use Broadcast\Application\AttachmentWhatsAppGateway;
+use Broadcast\Domain\Attachment;
 use Broadcast\Domain\WhatsAppFailure;
 use Broadcast\Infrastructure\Http\HttpResponse;
 
-final readonly class WppConnectClient implements WhatsAppGateway
+final readonly class WppConnectClient implements AttachmentWhatsAppGateway
 {
     private WhatsAppHttpClient $http;
     private string $baseUrl;
@@ -95,6 +96,39 @@ final readonly class WppConnectClient implements WhatsAppGateway
             }
         }
         return $result;
+    }
+
+    public function supportsFile(Attachment $attachment): bool
+    {
+        // The pinned server's internal/media.MaxBytes is 16 << 20, lower than our storage limit.
+        return $attachment->byteSize > 0 && $attachment->byteSize <= 16_777_216;
+    }
+
+    public function sendFile(string $address, Attachment $attachment, string $path): string
+    {
+        if (!self::phone($address) || !in_array($address, $this->allowedRecipients, true) || !$this->supportsFile($attachment)) {
+            throw new WhatsAppFailure('permanent');
+        }
+        try {
+            $bytes = file_get_contents($path, false, null, 0, 16_777_217);
+            if ($bytes === false || strlen($bytes) !== $attachment->byteSize || !hash_equals($attachment->sha256, hash('sha256', $bytes))) {
+                throw new \RuntimeException();
+            }
+            $body = json_encode(['phone' => $address, 'base64' => base64_encode($bytes), 'mimetype' => $attachment->mime,
+                'filename' => $attachment->displayName, 'isGroup' => false], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        } catch (\Throwable) {
+            throw new WhatsAppFailure('permanent');
+        }
+        $data = $this->request('POST', '/send-file', $body);
+        $results = $data['response'] ?? null;
+        $result = is_array($results) && count($results) === 1 ? ($results[0] ?? null) : null;
+        if (($data['status'] ?? null) !== 'success' || !is_array($result)
+            || !is_string($result['id'] ?? null) || $result['id'] === '' || strlen($result['id']) > 128
+            || !in_array($result['to'] ?? null, [$address . '@s.whatsapp.net', $address . '@c.us'], true)
+            || !is_string($result['mimetype'] ?? null) || !is_string($result['filename'] ?? null)) {
+            throw new WhatsAppFailure('uncertain');
+        }
+        return $result['id'];
     }
 
     public function resolvePhone(string $address): ?string

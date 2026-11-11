@@ -2,11 +2,14 @@
 FROM telegram-broadcast:release-fbb4b7b
 USER root
 WORKDIR /app
+RUN docker-php-ext-install pdo_mysql
+RUN mkdir -p /attachments /private-links && chown bot:bot /attachments /private-links && chmod 700 /attachments /private-links
 COPY composer.json composer.lock ./
 COPY assets/ assets/
 COPY src/ src/
 COPY migrations/ migrations/
 COPY bin/ bin/
+COPY public/ public/
 COPY tools/whatsapp/docker-init.php tools/whatsapp/docker-init.php
 COPY tools/whatsapp/TelegramTime.php tools/whatsapp/TelegramTime.php
 RUN test -s /usr/local/bin/composer \

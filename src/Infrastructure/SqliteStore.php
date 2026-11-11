@@ -10,12 +10,12 @@ use Throwable;
 
 final class SqliteStore implements Store
 {
-    private const array BUSINESS_TABLES = ['whatsapp_parts', 'whatsapp_receipts', 'whatsapp_pending_receipts', 'link_requests', 'channel_menus', 'identity_conflicts', 'channel_identity_aliases', 'channel_identities', 'channel_states', 'jobs', 'translations', 'drafts', 'broadcasts', 'contact_reservations', 'contacts', 'staff_sessions', 'users'];
+    private const array BUSINESS_TABLES = ['attachment_links', 'attachment_link_files', 'directory_link_audit', 'draft_previews', 'draft_attachments', 'broadcast_attachments', 'attachments', 'directory_local_state', 'directory_operations', 'directory_links', 'whatsapp_parts', 'whatsapp_receipts', 'whatsapp_pending_receipts', 'link_requests', 'channel_menus', 'identity_conflicts', 'channel_identity_aliases', 'channel_identities', 'channel_states', 'jobs', 'translations', 'drafts', 'broadcasts', 'contact_reservations', 'contacts', 'staff_sessions', 'users'];
 
     private PDO $db;
     private int $transactionDepth = 0;
 
-    public function __construct(string $path, private readonly ?int $teamChannelId = null)
+    public function __construct(string $path, private readonly ?int $teamChannelId = null, private readonly bool $directoryEnabled = false)
     {
         if ($teamChannelId !== null && $teamChannelId >= 0) {
             throw new \InvalidArgumentException('Team channel must use a negative Telegram chat ID.');
@@ -141,6 +141,7 @@ final class SqliteStore implements Store
                 $this->run("INSERT INTO channel_identities(user_id,channel,address,enabled) VALUES (?,'telegram',?,?)", [$user['id'], (string) $user['id'], ($user['status'] ?? 'draft') === 'approved' ? (int) $user['subscribed'] : 1]);
             }
             $this->run("UPDATE runtime_state SET value=MAX(value,CAST(? AS INTEGER)) WHERE name='person_sequence'", [$user['id']]);
+            $this->syncDirectoryUser($user['id']);
         });
     }
 
@@ -437,6 +438,11 @@ final class SqliteStore implements Store
     {
         $this->run('INSERT INTO broadcasts(admin_id,text,created_at) VALUES (?,?,?)', [$adminId, $text, time()]);
         $id = (int) $this->db->lastInsertId();
+        if ($this->directoryEnabled) {
+            $this->run("UPDATE broadcasts SET status='preparing_audience' WHERE id=?", [$id]);
+            $this->job('audience_snapshot', $id, null, null, ['snapshot_id' => bin2hex(random_bytes(16))]);
+            return ['id' => $id, 'recipients' => 0];
+        }
         $users = $this->run("SELECT id,language FROM users WHERE status='approved' AND NOT EXISTS (SELECT 1 FROM channel_identities i WHERE i.user_id=users.id AND i.channel='telegram' AND i.address=? AND i.retired=0) ORDER BY id", [(string) $adminId])->fetchAll();
         foreach ($users as $user) {
             $this->job('translate', $id, null, $user['language'], [], true);
@@ -448,10 +454,102 @@ final class SqliteStore implements Store
 
     public function broadcast(int $id): ?array { return $this->one('SELECT * FROM broadcasts WHERE id=?', [$id]); }
 
+    public function directoryEnabled(): bool { return $this->directoryEnabled; }
+
+    public function bootstrapDirectory(): void
+    {
+        if (!$this->directoryEnabled) { return; }
+        $this->transaction(function (): void {
+            foreach ($this->run("SELECT DISTINCT user_id FROM channel_identities WHERE channel='telegram' AND retired=0")->fetchAll() as $row) {
+                $this->syncDirectoryUser($row['user_id']);
+            }
+        });
+    }
+
+    private function syncDirectoryUser(int $userId, bool $reactivate = false): void
+    {
+        if (!$this->directoryEnabled) { return; }
+        $user = $this->user($userId);
+        if (!$user || !\Broadcast\Domain\PhoneNumber::normalize($user['phone'])) { return; }
+        $identity = $this->one("SELECT address FROM channel_identities WHERE user_id=? AND channel='telegram' AND retired=0", [$userId]);
+        if (!$identity) { return; }
+        if ($user['status'] === 'approved') { $this->linkDirectoryPhone($userId, $user['phone']); }
+        $change = ['type' => 'telegram', 'user_id' => (int) $identity['address'], 'phone' => $user['phone'], 'email' => $user['email'] ?: null, 'language' => $user['language'], 'status' => $user['status'], 'subscribed' => (bool) $user['subscribed']];
+        $fingerprint = hash('sha256', json_encode($change, JSON_THROW_ON_ERROR));
+        $previous = $this->one('SELECT * FROM directory_local_state WHERE user_id=?', [$userId]);
+        if (!$reactivate && $previous && $previous['fingerprint'] === $fingerprint) { return; }
+        $change['revision'] = $this->nextDirectoryRevision();
+        $change['reactivate'] = $reactivate;
+        $this->run('INSERT INTO directory_local_state(user_id,revision,fingerprint) VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET revision=excluded.revision,fingerprint=excluded.fingerprint', [$userId, $change['revision'], $fingerprint]);
+        $this->job('directory_sync', null, $userId, null, ['operation_id' => bin2hex(random_bytes(16)), 'change' => $change]);
+    }
+
+    private function nextDirectoryRevision(): int
+    {
+        $floor = max((int) ($this->one("SELECT value FROM runtime_state WHERE name='directory_revision'")['value'] ?? 0),
+            (int) ($this->one('SELECT MAX(revision) AS revision FROM directory_local_state')['revision'] ?? 0),
+            (int) ($this->one('SELECT MAX(revision) AS revision FROM directory_links')['revision'] ?? 0));
+        $this->run("INSERT INTO runtime_state(name,value) VALUES ('directory_revision',?) ON CONFLICT(name) DO UPDATE SET value=excluded.value", [$floor + 1]);
+        return $floor + 1;
+    }
+
+    private function linkDirectoryPhone(int $userId, string $phone): void
+    {
+        $link = $this->one('SELECT d.* FROM directory_links d JOIN users u ON u.id=d.user_id WHERE u.phone=? AND d.user_id!=?', [$phone, $userId]);
+        if (!$link || $this->one('SELECT 1 FROM directory_links WHERE user_id=?', [$userId])
+            || $this->one("SELECT 1 FROM channel_identities WHERE user_id=? AND channel='telegram' AND retired=0", [$link['user_id']])) { return; }
+        $oldWhatsApp = $this->one("SELECT * FROM channel_identities WHERE user_id=? AND channel='whatsapp' AND retired=0", [$link['user_id']]);
+        if ($oldWhatsApp && ($oldWhatsApp['verified_phone'] !== $phone || $this->one("SELECT 1 FROM channel_identities WHERE user_id=? AND channel='whatsapp'", [$userId]))) { return; }
+        $this->run('INSERT INTO directory_link_audit(contact_id,previous_user_id,user_id,created_at) VALUES (?,?,?,?)', [$link['contact_id'], $link['user_id'], $userId, time()]);
+        if ($oldWhatsApp) { $this->run('UPDATE channel_identities SET user_id=? WHERE id=?', [$userId, $oldWhatsApp['id']]); }
+        $this->run('UPDATE directory_links SET user_id=? WHERE contact_id=?', [$userId, $link['contact_id']]);
+    }
+
+    public function directoryBlocked(int $contactId): bool
+    {
+        return (bool) ($this->one('SELECT blocked FROM directory_links WHERE contact_id=?', [$contactId])['blocked'] ?? false);
+    }
+
+    public function publishAudience(int $broadcastId, \Broadcast\Domain\RecipientSnapshot $snapshot): bool
+    {
+        return $this->transaction(function () use ($broadcastId, $snapshot): bool {
+            $broadcast = $this->broadcast($broadcastId);
+            if (!$broadcast || !$broadcast['approved_by'] || $broadcast['status'] !== 'preparing_audience') { return false; }
+            foreach ($snapshot->recipients as $recipient) {
+                if ($recipient['telegram_user_id'] === $broadcast['admin_id'] || $this->directoryBlocked($recipient['contact_id'])) { continue; }
+                $link = $this->one('SELECT * FROM directory_links WHERE contact_id=?', [$recipient['contact_id']]);
+                if ($link === null) {
+                    $identity = $recipient['telegram_user_id'] !== null
+                        ? $this->identity('telegram', (string) $recipient['telegram_user_id']) : null;
+                    $identity ??= $this->ensureIdentity('whatsapp', substr($recipient['phone'], 1), $recipient['phone']);
+                    $userId = $identity['user_id'];
+                    // Imported contacts have no Telegram application; never overwrite a real application.
+                    if ($this->one("SELECT id FROM channel_identities WHERE user_id=? AND channel='telegram'", [$userId]) === null) {
+                        $this->run("UPDATE users SET phone=?,language=?,status='approved',completed=1,choosing_language=0 WHERE id=?", [$recipient['phone'], $recipient['language'], $userId]);
+                    }
+                    $this->run('INSERT INTO directory_links(contact_id,user_id) VALUES (?,?)', [$recipient['contact_id'], $userId]);
+                } else { $userId = $link['user_id']; }
+                $payload = ['contact_id' => $recipient['contact_id'], 'address' => $recipient['address']];
+                if ($recipient['channel'] === 'email') { $payload['email'] = $recipient['address']; }
+                $this->job('translate', $broadcastId, null, $recipient['language'], [], true);
+                $this->job('translate_subject', $broadcastId, null, $recipient['language'], [], true);
+                $this->job('delivery', $broadcastId, $userId, $recipient['language'], $payload, true, $recipient['channel']);
+            }
+            $this->run("UPDATE broadcasts SET status='preparing',audience_snapshot=? WHERE id=?", [$snapshot->id, $broadcastId]);
+            $counts = ['telegram' => 0, 'whatsapp' => 0, 'email' => 0];
+            foreach ($this->run("SELECT channel,COUNT(*) AS total FROM jobs WHERE broadcast_id=? AND kind='delivery' GROUP BY channel", [$broadcastId])->fetchAll() as $row) { $counts[$row['channel']] = (int) $row['total']; }
+            foreach (array_unique([$broadcast['admin_id'], $broadcast['approved_by']]) as $staff) {
+                $this->queueReply($staff, Messages::text('RU', 'broadcast_audience_ready', ['id' => $broadcastId] + $counts));
+            }
+            return true;
+        });
+    }
+
     public function addCatchup(int $userId, string $language): bool
     {
         $broadcast = $this->catchupBroadcast($userId);
         if ($broadcast === null) { return false; }
+        if ($this->directoryEnabled) { return $this->queueDirectoryCatchup($broadcast['id'], $userId); }
         $this->job('translate', $broadcast['id'], null, $language);
         $this->job('translate_subject', $broadcast['id'], null, $language);
         if ($this->snapshotDeliveries($broadcast['id'], $userId, $language)) {
@@ -463,12 +561,54 @@ final class SqliteStore implements Store
     public function addChannelCatchup(int $userId, string $language, string $channel): bool
     {
         if (!in_array($channel, ['telegram', 'whatsapp'], true)) { throw new \InvalidArgumentException('Unknown delivery channel.'); }
+        if ($this->directoryEnabled && $channel === 'whatsapp') { return false; }
         $broadcast = $this->catchupBroadcast($userId);
+        if ($broadcast !== null && $this->directoryEnabled) { return $this->queueDirectoryCatchup($broadcast['id'], $userId, $channel); }
         if ($broadcast === null || !$this->snapshotDeliveries($broadcast['id'], $userId, $language, false, $channel)) { return false; }
         $this->job('translate', $broadcast['id'], null, $language);
         $this->job('translate_subject', $broadcast['id'], null, $language);
         $this->run('UPDATE broadcasts SET reported=0 WHERE id=?', [$broadcast['id']]);
         return true;
+    }
+
+    private function queueDirectoryCatchup(int $broadcastId, int $userId, ?string $onlyChannel = null): bool
+    {
+        if ($this->one("SELECT id FROM jobs WHERE kind='directory_catchup' AND broadcast_id=? AND user_id=? AND status IN ('pending','sending')", [$broadcastId, $userId])) { return false; }
+        return $this->job('directory_catchup', $broadcastId, $userId, null, ['snapshot_id' => bin2hex(random_bytes(16)), 'only_channel' => $onlyChannel]);
+    }
+
+    public function publishDirectoryCatchup(int $broadcastId, int $userId, \Broadcast\Domain\RecipientSnapshot $snapshot, ?string $onlyChannel = null): bool
+    {
+        return $this->transaction(function () use ($broadcastId, $userId, $snapshot, $onlyChannel): bool {
+            $user = $this->user($userId);
+            $broadcast = $this->broadcast($broadcastId);
+            if (!$user || $user['status'] !== 'approved' || !$broadcast || !$broadcast['approved_by']) { return false; }
+            $telegram = $this->one("SELECT address FROM channel_identities WHERE user_id=? AND channel='telegram' AND retired=0", [$userId]);
+            if (!$telegram || (int) $telegram['address'] === $broadcast['admin_id']) { return false; }
+            $added = false;
+            foreach ($snapshot->recipients as $recipient) {
+                if ($recipient['telegram_user_id'] !== (int) $telegram['address'] || !in_array($recipient['channel'], ['telegram','email'], true)
+                    || $recipient['phone'] !== $user['phone'] || ($onlyChannel !== null && $recipient['channel'] !== $onlyChannel) || $this->directoryBlocked($recipient['contact_id'])) { continue; }
+                $link = $this->one('SELECT user_id FROM directory_links WHERE contact_id=?', [$recipient['contact_id']]);
+                if ($link === null) {
+                    if ($this->one('SELECT contact_id FROM directory_links WHERE user_id=?', [$userId])) { continue; }
+                    $this->run('INSERT INTO directory_links(contact_id,user_id) VALUES (?,?)', [$recipient['contact_id'], $userId]);
+                } elseif ($link['user_id'] !== $userId) {
+                    $this->linkDirectoryPhone($userId, $user['phone']);
+                    if (($this->one('SELECT user_id FROM directory_links WHERE contact_id=?', [$recipient['contact_id']])['user_id'] ?? null) !== $userId) { continue; }
+                }
+                // A phone merge can change local user IDs without creating a new recipient.
+                if ($this->one("SELECT id FROM jobs WHERE kind='delivery' AND broadcast_id=? AND channel=? AND json_extract(payload,'$.contact_id')=CAST(? AS INTEGER)", [$broadcastId, $recipient['channel'], $recipient['contact_id']])) { continue; }
+                $payload = ['contact_id' => $recipient['contact_id'], 'address' => $recipient['address'], 'snapshot_id' => $snapshot->id];
+                if ($recipient['channel'] === 'email') { $payload['email'] = $recipient['address']; }
+                if (!$this->job('delivery', $broadcastId, $userId, $recipient['language'], $payload, false, $recipient['channel'])) { continue; }
+                $this->job('translate', $broadcastId, null, $recipient['language']);
+                $this->job('translate_subject', $broadcastId, null, $recipient['language']);
+                $added = true;
+            }
+            if ($added) { $this->run('UPDATE broadcasts SET reported=0 WHERE id=?', [$broadcastId]); }
+            return $added;
+        });
     }
 
     private function catchupBroadcast(int $userId): ?array
@@ -545,13 +685,32 @@ final class SqliteStore implements Store
     {
         if (!in_array($status, ['approved', 'changes', 'rejected', 'draft'], true)) { return false; }
         $from = $status === 'draft' ? 'rejected' : 'pending';
-        return $this->run("UPDATE users SET status=?,revision=revision+1,subscribed=?,approved_at=?,edit_field='',step='review' WHERE id=? AND revision=? AND status=?", [$status, (int) ($status === 'approved'), $status === 'approved' ? time() : null, $id, $revision, $from])->rowCount() === 1;
+        return $this->transaction(function () use ($id, $revision, $status, $from): bool {
+            $changed = $this->run("UPDATE users SET status=?,revision=revision+1,subscribed=?,approved_at=?,edit_field='',step='review' WHERE id=? AND revision=? AND status=?", [$status, (int) ($status === 'approved'), $status === 'approved' ? time() : null, $id, $revision, $from])->rowCount() === 1;
+            if ($changed) {
+                $this->syncDirectoryUser($id, $status === 'approved');
+                if ($status === 'approved') { $this->run('UPDATE directory_links SET blocked=0 WHERE user_id=?', [$id]); }
+            }
+            return $changed;
+        });
     }
 
     public function unsubscribeUser(int $id): bool
     {
         // Every delivery checks status; the Telegram-specific subscribed flag remains independent.
-        return $this->run("UPDATE users SET subscribed=0,status='unsubscribed',revision=revision+1 WHERE id=? AND status='approved'", [$id])->rowCount() === 1;
+        return $this->transaction(function () use ($id): bool {
+            $changed = $this->run("UPDATE users SET subscribed=0,status='unsubscribed',revision=revision+1 WHERE id=? AND status='approved'", [$id])->rowCount() === 1;
+            if ($changed && $this->directoryEnabled) {
+                $revision = $this->nextDirectoryRevision();
+                $this->run('UPDATE directory_links SET blocked=1,revision=? WHERE user_id=?', [$revision, $id]);
+                $link = $this->one('SELECT * FROM directory_links WHERE user_id=?', [$id]);
+                if ($link) {
+                    $this->job('directory_sync', null, $id, null, ['operation_id' => bin2hex(random_bytes(16)), 'change' => ['type' => 'subscription', 'phone' => $this->user($id)['phone'], 'revision' => $revision, 'active' => false]]);
+                }
+                $this->syncDirectoryUser($id);
+            }
+            return $changed;
+        });
     }
 
     public function session(int $actor): ?array
@@ -568,8 +727,134 @@ final class SqliteStore implements Store
 
     public function createDraft(int $admin, string $text): array
     {
-        $this->run('INSERT INTO drafts(admin_id,text,created_at) VALUES (?,?,?)', [$admin, $text, time()]);
+        $this->run('INSERT INTO drafts(admin_id,text,created_at,updated_at) VALUES (?,?,?,?)', [$admin, $text, time(), time()]);
         return $this->draft((int) $this->db->lastInsertId());
+    }
+
+    public function latestEditableDraft(int $admin): ?array
+    {
+        return $this->one("SELECT * FROM drafts WHERE admin_id=? AND status IN ('draft','changes') ORDER BY id DESC LIMIT 1", [$admin]);
+    }
+
+    public function stageDraftAttachment(int $draftId, int $version, string $fileId, string $name, int $size): bool
+    {
+        try { \Broadcast\Domain\Attachment::validateName($name); } catch (\InvalidArgumentException) { return false; }
+        if ($fileId === '' || strlen($fileId) > 1024 || $size < 0 || $size > \Broadcast\Domain\Attachment::MAX_BYTES) { return false; }
+        return $this->transaction(function () use ($draftId, $version, $fileId, $name, $size): bool {
+            $draft = $this->draft($draftId);
+            if (!$draft || $draft['version'] !== $version || !in_array($draft['status'], ['draft','changes'], true) || count($this->draftAttachments($draftId)) >= 10) { return false; }
+            $this->run('INSERT INTO attachments(file_id,display_name,expected_size,created_at) VALUES (?,?,?,?)', [$fileId, $name, $size, time()]);
+            $id = (int) $this->db->lastInsertId();
+            $position = (int) ($this->one('SELECT MAX(position) AS p FROM draft_attachments WHERE draft_id=?', [$draftId])['p'] ?? 0) + 1;
+            $this->run('INSERT INTO draft_attachments VALUES (?,?,?)', [$draftId, $id, $position]);
+            $this->saveDraft($draftId, $version, ['text' => $draft['text']]);
+            $this->job('attachment_download', null, $draft['admin_id'], null, ['attachment_id' => $id, 'staff_id' => $draft['admin_id']]);
+            return true;
+        });
+    }
+
+    public function removeDraftAttachment(int $draftId, int $version, int $attachmentId): bool
+    {
+        return $this->transaction(function () use ($draftId, $version, $attachmentId): bool {
+            $draft = $this->draft($draftId);
+            if (!$draft || $draft['version'] !== $version || !in_array($draft['status'], ['draft','changes'], true)) { return false; }
+            if (!$this->run('DELETE FROM draft_attachments WHERE draft_id=? AND attachment_id=?', [$draftId, $attachmentId])->rowCount()) { return false; }
+            return $this->saveDraft($draftId, $version, ['text' => $draft['text']]);
+        });
+    }
+
+    public function draftAttachments(int $draftId): array
+    {
+        return $this->run('SELECT a.*,d.position FROM attachments a JOIN draft_attachments d ON d.attachment_id=a.id WHERE d.draft_id=? ORDER BY d.position', [$draftId])->fetchAll();
+    }
+
+    public function broadcastAttachments(int $broadcastId): array
+    {
+        return $this->run('SELECT a.*,b.position FROM attachments a JOIN broadcast_attachments b ON b.attachment_id=a.id WHERE b.broadcast_id=? ORDER BY b.position', [$broadcastId])->fetchAll();
+    }
+
+    public function attachment(int $id): ?array { return $this->one('SELECT * FROM attachments WHERE id=?', [$id]); }
+
+    public function queueAttachmentCleanup(int $now): void
+    {
+        $next = (int) ($this->one("SELECT value FROM runtime_state WHERE name='attachment_cleanup_at'")['value'] ?? 0);
+        if ($now < $next) { return; }
+        $this->transaction(function () use ($now): void {
+            if (!$this->one("SELECT 1 FROM jobs WHERE kind='attachment_cleanup' AND status='pending'")) {
+                $this->job('attachment_cleanup', null, null, null);
+            }
+            $this->run("INSERT INTO runtime_state(name,value) VALUES ('attachment_cleanup_at',?) ON CONFLICT(name) DO UPDATE SET value=excluded.value", [$now + 86400]);
+        });
+    }
+
+    public function markAttachmentSent(int $id, int $now): void
+    {
+        $this->run('UPDATE attachments SET first_sent_at=COALESCE(first_sent_at,?) WHERE id=?', [$now, $id]);
+    }
+
+    public function expiredAttachments(int $now): array
+    {
+        return $this->transaction(function () use ($now): array {
+            $cutoff = $now - 2_592_000;
+            $this->run("UPDATE jobs SET status='failed',error='attachment_expired' WHERE kind='delivery' AND status='pending' AND broadcast_id IN (SELECT b.broadcast_id FROM broadcast_attachments b JOIN attachments a ON a.id=b.attachment_id WHERE a.first_sent_at<=?)", [$cutoff]);
+            return $this->run("SELECT a.* FROM attachments a WHERE a.status='ready' AND ((a.first_sent_at IS NOT NULL AND a.first_sent_at<=?) OR (a.first_sent_at IS NULL AND a.created_at<=? AND NOT EXISTS (SELECT 1 FROM broadcast_attachments b WHERE b.attachment_id=a.id) AND NOT EXISTS (SELECT 1 FROM draft_attachments da JOIN drafts d ON d.id=da.draft_id WHERE da.attachment_id=a.id AND d.updated_at>?))) AND NOT EXISTS (SELECT 1 FROM broadcast_attachments b JOIN jobs j ON j.broadcast_id=b.broadcast_id WHERE b.attachment_id=a.id AND j.status IN ('pending','sending'))", [$cutoff, $cutoff, $cutoff])->fetchAll();
+        });
+    }
+
+    public function markAttachmentExpired(int $id): void { $this->run("UPDATE attachments SET status='expired' WHERE id=?", [$id]); }
+
+    public function clearUnsentAttachmentStart(int $id, int $now): void
+    {
+        $this->run('UPDATE attachments SET first_sent_at=NULL WHERE id=? AND first_sent_at=?', [$id, $now]);
+    }
+
+    public function completeAttachment(int $id, \Broadcast\Domain\Attachment $attachment): void
+    {
+        $this->run("UPDATE attachments SET status='ready',metadata=? WHERE id=? AND status='pending'", [json_encode($attachment, JSON_THROW_ON_ERROR), $id]);
+    }
+
+    public function draftReady(int $id): bool
+    {
+        $draft = $this->draft($id);
+        if (!$draft || trim($draft['subject']) === '') { return false; }
+        $files = $this->draftAttachments($id);
+        if (trim($draft['text']) === '' && $files === []) { return false; }
+        foreach ($files as $file) { if ($file['status'] !== 'ready') { return false; } }
+        return true;
+    }
+
+    public function queueDraftPreview(int $actor, int $draftId, int $version, string $text, array $options): void
+    {
+        $this->job('draft_preview', null, $actor, null, ['draft_id' => $draftId, 'version' => $version, 'text' => $text, 'options' => $options, 'snapshot_id' => bin2hex(random_bytes(16))]);
+    }
+
+    public function draftAudienceCounts(int $adminId, ?\Broadcast\Domain\RecipientSnapshot $snapshot = null): array
+    {
+        $counts = ['telegram' => 0, 'whatsapp' => 0, 'email' => 0];
+        if ($snapshot !== null) {
+            foreach ($snapshot->recipients as $recipient) {
+                if (($recipient['telegram_user_id'] ?? null) === $adminId || $this->directoryBlocked($recipient['contact_id'])) { continue; }
+                ++$counts[$recipient['channel']];
+            }
+            return $counts;
+        }
+        $eligible = "u.status='approved' AND NOT EXISTS (SELECT 1 FROM channel_identities author WHERE author.user_id=u.id AND author.channel='telegram' AND author.address=? AND author.retired=0)";
+        foreach ($this->run("SELECT i.channel,COUNT(*) AS total FROM channel_identities i JOIN users u ON u.id=i.user_id WHERE $eligible AND i.enabled=1 AND i.retired=0 AND (i.channel!='telegram' OR u.subscribed=1) GROUP BY i.channel", [(string) $adminId])->fetchAll() as $row) { $counts[$row['channel']] = (int) $row['total']; }
+        $counts['email'] = (int) $this->run("SELECT COUNT(*) FROM users u WHERE $eligible AND trim(COALESCE(u.email,''))!=''", [(string) $adminId])->fetchColumn();
+        return $counts;
+    }
+
+    public function markDraftPreviewed(int $draftId, int $version, int $actor): void
+    {
+        $draft = $this->draft($draftId);
+        if ($draft && $draft['version'] === $version && $this->draftReady($draftId)) {
+            $this->run('INSERT OR IGNORE INTO draft_previews VALUES (?,?,?)', [$draftId, $version, $actor]);
+        }
+    }
+
+    public function draftPreviewed(int $draftId, int $version, int $actor): bool
+    {
+        return $this->one('SELECT 1 FROM draft_previews WHERE draft_id=? AND version=? AND actor=?', [$draftId, $version, $actor]) !== null;
     }
 
     public function draft(int $id): ?array { return $this->one('SELECT * FROM drafts WHERE id=?', [$id]); }
@@ -584,16 +869,22 @@ final class SqliteStore implements Store
         if (!$set) { return false; }
         $values[] = $id;
         $values[] = $version;
-        return $this->run('UPDATE drafts SET ' . implode(',', $set) . ",version=version+1 WHERE id=? AND version=? AND status!='approved'", $values)->rowCount() === 1;
+        $updated = $this->run('UPDATE drafts SET ' . implode(',', $set) . ",updated_at=CAST(strftime('%s','now') AS INTEGER),version=version+1 WHERE id=? AND version=? AND status!='approved'", $values)->rowCount() === 1;
+        if ($updated && $changes === ['status' => 'pending']) {
+            $this->run('INSERT OR IGNORE INTO draft_previews(draft_id,version,actor) SELECT draft_id,?,actor FROM draft_previews WHERE draft_id=? AND version=?', [$version + 1, $id, $version]);
+        }
+        return $updated;
     }
 
     public function approveDraft(int $id, int $version, int $actor): ?array
     {
         $draft = $this->draft($id);
-        if (!$draft || $draft['status'] !== 'pending' || $draft['version'] !== $version) { return null; }
+        if (!$draft || $draft['status'] !== 'pending' || $draft['version'] !== $version || !$this->draftReady($id)) { return null; }
+        if ($this->draftAttachments($id) !== [] && !$this->draftPreviewed($id, $version, $actor)) { return null; }
         $broadcast = $this->createBroadcast($draft['admin_id'], $draft['text']);
         $this->run('UPDATE broadcasts SET subject=?,approved_by=?,team_channel_id=? WHERE id=?', [$draft['subject'], $actor, $this->teamChannelId, $broadcast['id']]);
         $this->run("UPDATE drafts SET status='approved',version=version+1,broadcast_id=? WHERE id=?", [$broadcast['id'], $id]);
+        $this->run('INSERT INTO broadcast_attachments(broadcast_id,attachment_id,position) SELECT ?,attachment_id,position FROM draft_attachments WHERE draft_id=?', [$broadcast['id'], $id]);
         if ($this->teamChannelId !== null) {
             // Channel-only translations must not become dependencies of user deliveries.
             $this->job('translate', $broadcast['id'], null, 'RU');
@@ -641,7 +932,8 @@ final class SqliteStore implements Store
                 (EXISTS (SELECT 1 FROM channel_states WHERE channel='whatsapp' AND state='connected') OR COALESCE((SELECT next_probe_at FROM channel_states WHERE channel='whatsapp'),0)<=CAST(? AS INTEGER))
                 AND (j.kind!='delivery' OR NOT EXISTS (SELECT 1 FROM jobs earlier WHERE earlier.channel='whatsapp' AND earlier.kind='delivery' AND earlier.status IN ('pending','sending') AND (earlier.broadcast_id<j.broadcast_id OR (earlier.broadcast_id=j.broadcast_id AND earlier.id<j.id))))
             )) AND (
-                j.kind IN ('message','photo','callback','translate','comment','export') OR
+                j.kind IN ('message','photo','callback','translate','comment','export','directory_sync','attachment_download','draft_preview','attachment_cleanup') OR
+                (j.kind IN ('audience_snapshot','directory_catchup') AND NOT EXISTS (SELECT 1 FROM jobs ds WHERE ds.kind='directory_sync' AND ds.status!='done')) OR
                 (j.kind='translate_subject' AND EXISTS (SELECT 1 FROM translations t WHERE t.broadcast_id=j.broadcast_id AND t.language=j.language)) OR
                 (j.kind='channel_post' AND b.approved_by>0 AND b.team_channel_id=j.user_id AND EXISTS (
                     SELECT 1 FROM translations t WHERE t.broadcast_id=j.broadcast_id AND t.language='RU' AND t.subject IS NOT NULL)) OR
@@ -653,12 +945,26 @@ final class SqliteStore implements Store
     }
 
     public function completeJob(int $id, string $status = 'done'): void { $this->run('UPDATE jobs SET status=?,error=NULL WHERE id=?', [$status, $id]); }
-    public function advancePart(int $id): void { $this->run('UPDATE jobs SET part=part+1,attempts=0,next_at=0 WHERE id=?', [$id]); }
+    public function advancePart(int $id): void { $this->run("UPDATE jobs SET part=part+1,attempts=0,next_at=0,status='pending' WHERE id=? AND status IN ('pending','sending')", [$id]); }
+
+    public function beginDeliveryPart(int $jobId): bool
+    {
+        return $this->run("UPDATE jobs SET status='sending' WHERE id=? AND kind='delivery' AND channel IN ('telegram','email') AND status='pending'", [$jobId])->rowCount() === 1;
+    }
+
+    public function recoverDeliveryParts(): array
+    {
+        return $this->transaction(function (): array {
+            $ids = $this->run("SELECT id FROM jobs WHERE kind='delivery' AND channel IN ('telegram','email') AND status='sending'")->fetchAll(PDO::FETCH_COLUMN);
+            $this->run("UPDATE jobs SET status='unknown',error='delivery_uncertain' WHERE kind='delivery' AND channel IN ('telegram','email') AND status='sending'");
+            return $ids;
+        });
+    }
 
     public function deferJob(int $id, int $attempts, int $nextAt, string $error, bool $failed): void
     {
         $this->transaction(function () use ($id, $attempts, $nextAt, $error, $failed): void {
-            $changed = $this->run("UPDATE jobs SET attempts=?,next_at=?,error=?,status=? WHERE id=? AND status NOT IN ('unknown','accepted','delivered','read')", [$attempts, $nextAt, $error, $failed ? 'failed' : 'pending', $id])->rowCount();
+            $changed = $this->run("UPDATE jobs SET attempts=?,next_at=?,error=?,status=?,payload=json_remove(payload,'$.checked_part','$.checked_at','$.checked_epoch') WHERE id=? AND status NOT IN ('unknown','accepted','delivered','read')", [$attempts, $nextAt, $error, $failed ? 'failed' : 'pending', $id])->rowCount();
             if ($changed > 0) {
                 // Called only for errors that positively establish that no send occurred.
                 $this->run("UPDATE whatsapp_parts SET status=? WHERE job_id=? AND status='sending'", [$failed ? 'failed' : 'pending', $id]);
@@ -823,12 +1129,14 @@ final class SqliteStore implements Store
         $this->run('DELETE FROM whatsapp_pending_receipts WHERE event_id=?', [$eventId]);
     }
 
-    public function retryAuxiliaryJob(int $jobId, int $actor, bool $superadmin): bool
+    public function retryAuxiliaryJob(int $jobId, int $actor, bool $superadmin, bool $allowGeneral = true): bool
     {
-        $job = $this->one("SELECT * FROM jobs WHERE id=? AND kind IN ('comment','export') AND status='failed'", [$jobId]);
+        $job = $this->one("SELECT * FROM jobs WHERE id=? AND kind IN ('comment','export','attachment_download','draft_preview','directory_sync','directory_catchup') AND status='failed'", [$jobId]);
         if (!$job) { return false; }
+        if (!$allowGeneral && !in_array($job['kind'], ['attachment_download','draft_preview'], true)) { return false; }
+        if (in_array($job['kind'], ['directory_sync','directory_catchup'], true) && !$superadmin) { return false; }
         $payload = json_decode($job['payload'], true, flags: JSON_THROW_ON_ERROR);
-        $owner = $job['kind'] === 'comment' ? $payload['staff_id'] : $job['user_id'];
+        $owner = $payload['staff_id'] ?? $job['user_id'];
         if (!$superadmin && $owner !== $actor) { return false; }
         return $this->run("UPDATE jobs SET status='pending',attempts=0,next_at=0,error=NULL WHERE id=? AND status='failed'", [$jobId])->rowCount() === 1;
     }
@@ -837,6 +1145,7 @@ final class SqliteStore implements Store
     {
         $this->run('UPDATE users SET subscribed=0 WHERE id=?', [$id]);
         $this->run("UPDATE channel_identities SET enabled=0 WHERE user_id=? AND channel='telegram'", [$id]);
+        $this->syncDirectoryUser($id);
     }
 
     public function refreshBroadcasts(): void
@@ -851,11 +1160,12 @@ final class SqliteStore implements Store
             foreach ($finished as $broadcast) {
                 $report = Messages::text('RU', 'broadcast_report', ['id' => $broadcast['id']]);
                 foreach (['telegram', 'email'] as $channel) {
-                    $counts = ['done' => 0, 'skipped' => 0, 'failed' => 0];
+                    $counts = ['done' => 0, 'skipped' => 0, 'failed' => 0, 'unknown' => 0];
                     foreach ($this->run("SELECT status,COUNT(*) AS total FROM jobs WHERE broadcast_id=? AND kind='delivery' AND report_included=1 AND channel=? GROUP BY status", [$broadcast['id'], $channel])->fetchAll() as $row) {
                         $counts[$row['status']] = (int) $row['total'];
                     }
                     $report .= "\n" . Messages::text('RU', 'broadcast_report_' . $channel, $counts);
+                    if ($counts['unknown'] > 0) { $report .= "\n" . Messages::text('RU', 'attachment_report_unknown', ['channel' => $channel, 'count' => $counts['unknown']]); }
                 }
                 $wa = $this->run("SELECT status,COUNT(*) AS total FROM jobs WHERE broadcast_id=? AND kind='delivery' AND report_included=1 AND channel='whatsapp' GROUP BY status", [$broadcast['id']])->fetchAll();
                 if ($wa !== []) {
@@ -864,13 +1174,19 @@ final class SqliteStore implements Store
                     $report .= "\n" . Messages::text('RU', 'broadcast_report_whatsapp', $counts);
                 }
                 if ($broadcast['team_channel_id'] !== null) {
-                    $counts = ['done' => 0, 'skipped' => 0, 'failed' => 0];
+                    $counts = ['done' => 0, 'skipped' => 0, 'failed' => 0, 'unknown' => 0];
                     foreach ($this->run("SELECT status,COUNT(*) AS total FROM jobs WHERE broadcast_id=? AND kind='channel_post' AND report_included=1 GROUP BY status", [$broadcast['id']])->fetchAll() as $row) {
                         $counts[$row['status']] = (int) $row['total'];
                     }
                     $report .= "\n" . Messages::text('RU', 'broadcast_report_team', $counts);
+                    if ($counts['unknown'] > 0) { $report .= "\n" . Messages::text('RU', 'broadcast_report_team_unknown', $counts); }
                 }
                 if ($broadcast['approved_by']) {
+                    if ($this->broadcastAttachments($broadcast['id']) !== []) {
+                        foreach ($this->run("SELECT channel,COUNT(*) AS total FROM jobs WHERE broadcast_id=? AND kind='delivery' AND part>0 AND status IN ('failed','skipped','unknown') GROUP BY channel", [$broadcast['id']])->fetchAll() as $partial) {
+                            $report .= "\n" . Messages::text('RU', 'attachment_report_partial', ['channel' => $partial['channel'], 'count' => $partial['total']]);
+                        }
+                    }
                     $this->queueReply($broadcast['approved_by'], $report);
                 }
                 $this->run('UPDATE broadcasts SET reported=1 WHERE id=?', [$broadcast['id']]);

@@ -9,6 +9,8 @@ x-app: &app
   env_file: .env
   environment:
     DATABASE_PATH: /data/application.sqlite
+    ATTACHMENTS_PATH: /attachments
+    ATTACHMENTS_LINK_KEY_FILE: /private-links/signing.key
     APP_ENV: test
     MAIL_TRANSPORT: gmail
     GMAIL_OAUTH_CLIENT_FILE: /run/secrets/gmail-client.json
@@ -21,6 +23,8 @@ x-app: &app
     WHATSAPP_ALLOWED_RECIPIENTS_FILE: /run/secrets/whatsapp-allowed.json
   volumes:
     - app-data:/data
+    - attachments-data:/attachments
+    - attachment-keys:/private-links
     - ./secrets/whatsapp-spike/session-token.json:/run/secrets/whatsapp-token.json:ro
     - ./secrets/whatsapp-app/allowed-recipients.json:/run/secrets/whatsapp-allowed.json:ro
     - type: bind
@@ -116,3 +120,5 @@ services:
 
 volumes:
   app-data:
+  attachments-data:
+  attachment-keys:

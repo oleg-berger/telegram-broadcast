@@ -11,6 +11,10 @@ namespace Broadcast\Application;
  */
 interface Store
 {
+    public function directoryEnabled(): bool;
+    public function directoryBlocked(int $contactId): bool;
+    public function publishAudience(int $broadcastId, \Broadcast\Domain\RecipientSnapshot $snapshot): bool;
+    public function publishDirectoryCatchup(int $broadcastId, int $userId, \Broadcast\Domain\RecipientSnapshot $snapshot, ?string $onlyChannel = null): bool;
     public function transaction(callable $operation): mixed;
     public function acceptUpdate(int $id, ?int $sourceDate = null): bool;
     public function user(int $id): ?array;
@@ -75,6 +79,28 @@ interface Store
     public function session(int $actor): ?array;
     public function saveSession(int $actor, ?array $session): void;
     public function createDraft(int $admin, string $text): array;
+    public function latestEditableDraft(int $admin): ?array;
+    public function stageDraftAttachment(int $draftId, int $version, string $fileId, string $name, int $size): bool;
+    public function removeDraftAttachment(int $draftId, int $version, int $attachmentId): bool;
+    public function draftAttachments(int $draftId): array;
+    public function broadcastAttachments(int $broadcastId): array;
+    public function attachment(int $id): ?array;
+    public function completeAttachment(int $id, \Broadcast\Domain\Attachment $attachment): void;
+    public function draftReady(int $id): bool;
+    public function queueDraftPreview(int $actor, int $draftId, int $version, string $text, array $options): void;
+    /** Preliminary enabled recipients per channel, excluding the registered author. */
+    public function draftAudienceCounts(int $adminId, ?\Broadcast\Domain\RecipientSnapshot $snapshot = null): array;
+    public function markDraftPreviewed(int $draftId, int $version, int $actor): void;
+    public function draftPreviewed(int $draftId, int $version, int $actor): bool;
+    public function bootstrapDirectory(): void;
+    public function queueAttachmentCleanup(int $now): void;
+    public function expiredAttachments(int $now): array;
+    public function markAttachmentExpired(int $id): void;
+    public function markAttachmentSent(int $id, int $now): void;
+    /** Only after a local preflight proves the first delivery attempt never reached a transport. */
+    public function clearUnsentAttachmentStart(int $id, int $now): void;
+    public function beginDeliveryPart(int $jobId): bool;
+    public function recoverDeliveryParts(): array;
     public function draft(int $id): ?array;
     public function saveDraft(int $id, int $version, array $changes): bool;
     public function approveDraft(int $id, int $version, int $actor): ?array;
@@ -88,7 +114,7 @@ interface Store
     public function updateJobPayload(int $id, array $payload): void;
     public function mailNextAt(): int;
     public function setMailNextAt(int $time): void;
-    public function retryAuxiliaryJob(int $jobId, int $actor, bool $superadmin): bool;
+    public function retryAuxiliaryJob(int $jobId, int $actor, bool $superadmin, bool $allowGeneral = true): bool;
     public function retryBroadcast(int $id): bool;
     public function nextJob(int $now): ?array;
     public function completeJob(int $id, string $status = 'done'): void;

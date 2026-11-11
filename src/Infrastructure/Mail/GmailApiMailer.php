@@ -3,7 +3,8 @@ declare(strict_types=1);
 
 namespace Broadcast\Infrastructure\Mail;
 
-use Broadcast\Application\MailGateway;
+use Broadcast\Application\AttachmentMailGateway;
+use Broadcast\Application\MailPreparationGateway;
 use Broadcast\Domain\ApiFailure;
 use Broadcast\Infrastructure\Http\CurlHttpClient;
 use Broadcast\Infrastructure\Http\HttpClient;
@@ -12,7 +13,7 @@ use Broadcast\Infrastructure\Http\HttpTransportException;
 use PHPMailer\PHPMailer\Exception;
 use PHPMailer\PHPMailer\PHPMailer;
 
-final class GmailApiMailer implements MailGateway
+final class GmailApiMailer implements AttachmentMailGateway, MailPreparationGateway
 {
     private HttpClient $http;
     private \Closure $clock;
@@ -28,12 +29,25 @@ final class GmailApiMailer implements MailGateway
         private string $replyTo = '',
         ?HttpClient $http = null,
         ?\Closure $clock = null,
+        private int $maxMessageBytes = 25_000_000,
     ) {
         $this->http = $http ?? new CurlHttpClient();
         $this->clock = $clock ?? static fn (): int => time();
     }
 
     public function send(string $to, string $subject, string $text): void
+    {
+        $this->sendWithAttachments($to, $subject, $text, []);
+    }
+
+    public function prepareDelivery(): bool
+    {
+        if ($this->accessToken !== null && ($this->clock)() < $this->expiresAt) { return false; }
+        $this->token();
+        return true;
+    }
+
+    public function sendWithAttachments(string $to, string $subject, string $text, array $attachments): void
     {
         $mail = new PHPMailer(true);
         try {
@@ -45,7 +59,7 @@ final class GmailApiMailer implements MailGateway
             $mail->Subject = $subject;
             $mail->Body = $text;
             $mail->isHTML(false);
-            $mail->preSend();
+            MailAttachments::prepare($mail, $attachments, $this->maxMessageBytes);
             $raw = rtrim(strtr(base64_encode($mail->getSentMIMEMessage()), '+/', '-_'), '=');
         } catch (Exception) {
             throw new ApiFailure('Email preparation failed.');
@@ -53,7 +67,7 @@ final class GmailApiMailer implements MailGateway
         $token = $this->token();
         $response = $this->post('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', [
             'Content-Type' => 'application/json', 'Authorization' => 'Bearer ' . $token,
-        ], json_encode(['raw' => $raw], JSON_THROW_ON_ERROR));
+        ], json_encode(['raw' => $raw], JSON_THROW_ON_ERROR), delivery: true);
         if ($response->status === 401) {
             // Refresh on the next queued attempt; never resend a message inside one attempt.
             $this->accessToken = null;
@@ -61,7 +75,7 @@ final class GmailApiMailer implements MailGateway
         $this->check($response, true);
         $json = json_decode($response->body, true);
         if (!is_array($json) || !is_string($json['id'] ?? null) || $json['id'] === '') {
-            throw new ApiFailure('Invalid Gmail delivery response.', transient: true);
+            throw new ApiFailure('Invalid Gmail delivery response.', transient: true, uncertain: true);
         }
     }
 
@@ -86,12 +100,13 @@ final class GmailApiMailer implements MailGateway
         return $this->accessToken;
     }
 
-    private function post(string $url, array $headers, string $body): HttpResponse
+    private function post(string $url, array $headers, string $body, bool $delivery = false): HttpResponse
     {
         try {
             return $this->http->post($url, $headers, $body, 20);
-        } catch (HttpTransportException) {
-            throw new ApiFailure('Gmail request failed.', transient: true);
+        } catch (HttpTransportException $failure) {
+            $beforeSend = in_array($failure->transportCode, [CURLE_COULDNT_RESOLVE_HOST, CURLE_COULDNT_CONNECT, CURLE_SSL_CONNECT_ERROR, CURLE_SSL_CACERT], true);
+            throw new ApiFailure('Gmail request failed.', transient: true, uncertain: $delivery && !$beforeSend);
         }
     }
 

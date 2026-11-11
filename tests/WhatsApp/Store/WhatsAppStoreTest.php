@@ -40,13 +40,16 @@ final class WhatsAppStoreTest extends TestCase
             $store = new SqliteStore($path);
             $store->migrate();
             foreach ($before as $table => $rows) {
-                self::assertSame($rows, $old->query("SELECT * FROM $table")->fetchAll(PDO::FETCH_ASSOC));
+                $columns = implode(',', array_keys($rows[0]));
+                self::assertSame($rows, $old->query("SELECT $columns FROM $table")->fetchAll(PDO::FETCH_ASSOC));
             }
+            self::assertNull($old->query('SELECT audience_snapshot FROM broadcasts WHERE id=9')->fetchColumn());
             self::assertSame(900001, $store->identity('telegram', '900001')['user_id']);
             self::assertGreaterThan(900001, $store->ensureIdentity('whatsapp', '12025550100', '+12025550100')['user_id']);
             $store->close();
             $old = null;
         } finally {
+            if (isset($store)) { $store->close(); }
             $old = null;
             foreach ([$path, $path . '-wal', $path . '-shm'] as $file) {
                 if (is_file($file)) { unlink($file); }
@@ -371,7 +374,7 @@ final class WhatsAppStoreTest extends TestCase
         $tg = $this->store->ensureIdentity('telegram', (string) $wa['user_id']);
         $this->profile($tg['user_id'], 'approved');
         $draft = $this->store->createDraft($wa['user_id'], 'Text');
-        $this->store->saveDraft($draft['id'], 1, ['status' => 'pending']);
+        $this->store->saveDraft($draft['id'], 1, ['status' => 'pending', 'subject' => 'Subject']);
         $broadcast = $this->store->approveDraft($draft['id'], 2, 77);
         self::assertSame(1, $broadcast['recipients']);
         self::assertSame(['email', 'whatsapp'], $this->deliveryChannels($broadcast['id']));

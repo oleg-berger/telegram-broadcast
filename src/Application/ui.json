@@ -1,4 +1,46 @@
 {
+  "broadcast_report_team_unknown": [
+    "Канал команды (RU): неопределённый результат {unknown}. Автоматический повтор отключён.",
+    "Team channel (RU): {unknown} unknown outcomes. Automatic retry is disabled.",
+    "Canal del equipo (RU): {unknown} resultados desconocidos. Reintento automático desactivado.",
+    "Canal de l’équipe (RU) : {unknown} résultats inconnus. Nouvelle tentative automatique désactivée."
+  ],
+  "broadcast_audience_preparing": [
+    "Рассылка #{id} одобрена. Подготовка аудитории: ожидаем синхронизацию и окончательный снимок каталога. Отправка ещё не началась.",
+    "Broadcast #{id} approved. Preparing the audience: waiting for synchronization and the final directory snapshot. Delivery has not started.",
+    "Envío #{id} aprobado. Preparando la audiencia: esperamos la sincronización y la instantánea definitiva del catálogo. La entrega aún no ha empezado.",
+    "Envoi #{id} approuvé. Préparation de l’audience : synchronisation et instantané définitif du catalogue en attente. La livraison n’a pas commencé."
+  ],
+  "broadcast_audience_ready": [
+    "Аудитория рассылки #{id} зафиксирована: Telegram — {telegram}; WhatsApp — {whatsapp}; email — {email}. Перевод и отправка выполнятся по очереди.",
+    "Audience for broadcast #{id} captured: Telegram — {telegram}; WhatsApp — {whatsapp}; email — {email}. Translation and delivery will run through the queue.",
+    "Audiencia del envío #{id} fijada: Telegram — {telegram}; WhatsApp — {whatsapp}; email — {email}. La traducción y la entrega se procesarán en la cola.",
+    "Audience de l’envoi #{id} établie : Telegram — {telegram} ; WhatsApp — {whatsapp} ; email — {email}. Traduction et livraison seront traitées dans la file."
+  ],
+  "directory_sync_failed": [
+    "Синхронизация каталога остановлена: задание #{id}. Новые рассылки ожидают исправления. Суперадминистратор может повторить: /retryjob {id}.",
+    "Directory synchronization stopped: job #{id}. New broadcasts wait for a fix. A superadmin can retry: /retryjob {id}.",
+    "Sincronización del catálogo detenida: tarea #{id}. Los envíos esperan la corrección. El superadministrador puede repetir: /retryjob {id}.",
+    "Synchronisation du catalogue arrêtée : tâche #{id}. Les envois attendent une correction. Un superadministrateur peut réessayer : /retryjob {id}."
+  ],
+  "directory_sync_waiting": [
+    "Каталог недоступен: задание #{id}. Синхронизация продолжит повторяться, новые рассылки ожидают её завершения.",
+    "Directory unavailable: job #{id}. Synchronization will keep retrying; new broadcasts wait for it to finish.",
+    "Catálogo no disponible: tarea #{id}. La sincronización seguirá intentándolo; los envíos esperan a que termine.",
+    "Catalogue indisponible : tâche #{id}. La synchronisation sera réessayée ; les envois attendent sa fin."
+  ],
+  "directory_snapshot_failed": [
+    "Не удалось подготовить аудиторию рассылки #{id}. Доставка этой аудитории не началась. После исправления каталога: /retry {id}.",
+    "Could not prepare the audience for broadcast #{id}. Delivery to this audience has not started. After fixing the directory: /retry {id}.",
+    "No se pudo preparar la audiencia del envío #{id}. La entrega a esta audiencia no ha empezado. Tras corregir el catálogo: /retry {id}.",
+    "Impossible de préparer l’audience de l’envoi #{id}. La livraison à cette audience n’a pas commencé. Après correction du catalogue : /retry {id}."
+  ],
+  "draft_audience_counts": [
+    "Предварительная аудитория: Telegram — {telegram}; WhatsApp — {whatsapp}; email — {email}. Окончательный список фиксируется после одобрения.",
+    "Estimated audience: Telegram — {telegram}; WhatsApp — {whatsapp}; email — {email}. The final list is captured after approval.",
+    "Audiencia estimada: Telegram — {telegram}; WhatsApp — {whatsapp}; email — {email}. La lista definitiva se fija tras la aprobación.",
+    "Audience estimée : Telegram — {telegram} ; WhatsApp — {whatsapp} ; email — {email}. La liste définitive est établie après approbation."
+  ],
   "start_hint": [
     "/start — Русский / English / Español / Français", "/start — Русский / English / Español / Français", "/start — Русский / English / Español / Français", "/start — Русский / English / Español / Français"
   ],
@@ -447,5 +489,78 @@
     "Imén Nails news for registered users. Complete your details: after approval, announcements will arrive in Telegram and by email.\n\n/start — register or check application status\n/language — change language\n/help — help\nReplies to announcements are not monitored.",
     "Noticias de Imén Nails para usuarios registrados. Complete sus datos: tras la aprobación, recibirá anuncios en Telegram y por email.\n\n/start — registro o estado de la solicitud\n/language — cambiar idioma\n/help — ayuda\nNo se atienden las respuestas a los anuncios.",
     "Actualités Imén Nails pour les utilisateurs inscrits. Complétez votre dossier : après validation, vous recevrez les annonces sur Telegram et par e-mail.\n\n/start — inscription ou état de la demande\n/language — changer de langue\n/help — aide\nLes réponses aux annonces ne sont pas traitées."
+  ],
+
+  "attachment_finish": [
+    "Завершить",
+    "Завершить",
+    "Завершить",
+    "Завершить"
+  ],
+  "attachment_download_failed": [
+    "Файл не загружен. Повтор: /retryjob {id}",
+    "Файл не загружен. Повтор: /retryjob {id}",
+    "Файл не загружен. Повтор: /retryjob {id}",
+    "Файл не загружен. Повтор: /retryjob {id}"
+  ],
+  "attachment_wait": [
+    "Загрузка файлов ещё не завершена либо не указана тема. После загрузки откройте черновик /draft ID или нажмите «Завершить».",
+    "Загрузка файлов ещё не завершена либо не указана тема. После загрузки откройте черновик /draft ID или нажмите «Завершить».",
+    "Загрузка файлов ещё не завершена либо не указана тема. После загрузки откройте черновик /draft ID или нажмите «Завершить».",
+    "Загрузка файлов ещё не завершена либо не указана тема. После загрузки откройте черновик /draft ID или нажмите «Завершить»."
+  ],
+  "attachment_preview_complete": [
+    "Комплект файлов показан полностью. Проверьте тему, текст и вложения перед подтверждением.",
+    "Комплект файлов показан полностью. Проверьте тему, текст и вложения перед подтверждением.",
+    "Комплект файлов показан полностью. Проверьте тему, текст и вложения перед подтверждением.",
+    "Комплект файлов показан полностью. Проверьте тему, текст и вложения перед подтверждением."
+  ],
+  "attachment_added": [
+    "Файл добавлен в черновик #{id}. Добавьте остальные и отправьте /done.",
+    "Файл добавлен в черновик #{id}. Добавьте остальные и отправьте /done.",
+    "Файл добавлен в черновик #{id}. Добавьте остальные и отправьте /done.",
+    "Файл добавлен в черновик #{id}. Добавьте остальные и отправьте /done."
+  ],
+  "attachment_invalid": [
+    "Файл недоступен, превышает 20 МБ или достигнут лимит 10 файлов. Проверьте имя и размер.",
+    "Файл недоступен, превышает 20 МБ или достигнут лимит 10 файлов. Проверьте имя и размер.",
+    "Файл недоступен, превышает 20 МБ или достигнут лимит 10 файлов. Проверьте имя и размер.",
+    "Файл недоступен, превышает 20 МБ или достигнут лимит 10 файлов. Проверьте имя и размер."
+  ],
+  "attachment_caption_ignored": [
+    "Подпись к файлу не добавлена. Укажите общий текст объявления через кнопку изменения текста.",
+    "Подпись к файлу не добавлена. Укажите общий текст объявления через кнопку изменения текста.",
+    "Подпись к файлу не добавлена. Укажите общий текст объявления через кнопку изменения текста.",
+    "Подпись к файлу не добавлена. Укажите общий текст объявления через кнопку изменения текста."
+  ],
+  "attachment_remove": [
+    "Удалить файл {position}",
+    "Удалить файл {position}",
+    "Удалить файл {position}",
+    "Удалить файл {position}"
+  ],
+  "attachment_input_help": [
+    "Добавьте фотографии или документы (до 10 файлов, каждый до 20 МБ). Отдельные подписи не используются. Затем нажмите «Завершить» или отправьте /done.",
+    "Добавьте фотографии или документы (до 10 файлов, каждый до 20 МБ). Отдельные подписи не используются. Затем нажмите «Завершить» или отправьте /done.",
+    "Добавьте фотографии или документы (до 10 файлов, каждый до 20 МБ). Отдельные подписи не используются. Затем нажмите «Завершить» или отправьте /done.",
+    "Добавьте фотографии или документы (до 10 файлов, каждый до 20 МБ). Отдельные подписи не используются. Затем нажмите «Завершить» или отправьте /done."
+  ],
+  "attachment_report_partial": [
+    "Неполные комплекты ({channel}): {count}.",
+    "Неполные комплекты ({channel}): {count}.",
+    "Неполные комплекты ({channel}): {count}.",
+    "Неполные комплекты ({channel}): {count}."
+  ],
+  "attachment_add": [
+    "Добавить файлы",
+    "Добавить файлы",
+    "Добавить файлы",
+    "Добавить файлы"
+  ],
+  "attachment_report_unknown": [
+    "Неопределённый результат ({channel}): {count}. Автоматический повтор отключён.",
+    "Unknown delivery result ({channel}): {count}. Automatic retry is disabled.",
+    "Resultado de entrega desconocido ({channel}): {count}. Reintento automático desactivado.",
+    "Résultat de livraison inconnu ({channel}) : {count}. Nouvelle tentative automatique désactivée."
   ]
 }

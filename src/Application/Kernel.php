@@ -73,6 +73,7 @@ final class Kernel
         $this->store->transaction(function () use ($event): void {
             if (!$this->store->acceptChannelEvent('whatsapp', $event['event_id'], $event['sequence'], $event['created_at'])) { return; }
             if (!$this->store->acceptChannelEvent('whatsapp-message', $event['message_id'], 0)) { return; }
+            if ($this->store->directoryEnabled()) { return; }
             $identity = $this->store->ensureIdentity('whatsapp', $event['address'], $event['verified_phone']);
             if ($identity['address_conflict'] ?? false) {
                 $this->linker->addressConflict($identity, $event['body']);
