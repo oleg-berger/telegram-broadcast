@@ -57,6 +57,21 @@ final class AttachmentLinksTest extends TestCase
         catch (ApiFailure) { self::assertFileDoesNotExist($path . '.attachment-links.key'); }
     }
 
+    public function testSigningKeyCanStayOutsideDatabaseAndDownloadVolume(): void
+    {
+        $path = $this->directory . '/reader.sqlite';
+        $db = new \PDO('sqlite:' . $path);
+        $db->exec(file_get_contents(dirname(__DIR__, 2) . '/migrations/008_attachment_links.sql'));
+        $file = $this->fixture();
+        $keyPath = $this->directory . '/bot-only.key';
+        $issuer = new SqliteAttachmentLinks($path, $this->storage, 'https://files.example.com/download', $keyPath);
+        $url = $issuer->issue($file, 42, 100);
+        self::assertFileExists($keyPath);
+        self::assertFileDoesNotExist($path . '.attachment-links.key');
+        self::assertSame($url, (new SqliteAttachmentLinks($path, $this->storage, 'https://files.example.com/download', $keyPath))->issue($file,42,101));
+        self::assertEquals($file, (new SqliteAttachmentLinks($path, $this->storage, 'https://files.example.com/download'))->resolve(basename($url),101));
+    }
+
     public function testLinkWorksUntilExactExpiryAndDatabaseContainsOnlyTokenHash(): void
     {
         $links = new SqliteAttachmentLinks($this->db, $this->storage, 'https://files.example.com/download');

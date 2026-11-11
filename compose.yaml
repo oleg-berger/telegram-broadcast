@@ -1,15 +1,19 @@
 name: telegram-broadcast
 
 x-service: &service
-  image: ${BOT_IMAGE:-telegram-broadcast:local}
+  image: telegram-broadcast:local
   build:
     context: .
     target: production
   env_file: .env
   environment:
     DATABASE_PATH: /data/broadcast.sqlite
+    ATTACHMENTS_PATH: /attachments
+    ATTACHMENTS_LINK_KEY_FILE: /private-links/signing.key
   volumes:
     - bot-data:/data
+    - attachments-data:/attachments
+    - attachment-keys:/private-links
   restart: unless-stopped
   init: true
   stop_grace_period: 45s
@@ -33,3 +37,5 @@ services:
 
 volumes:
   bot-data:
+  attachments-data:
+  attachment-keys:
