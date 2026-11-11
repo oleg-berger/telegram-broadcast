@@ -5,3 +5,7 @@
 /gmail-oauth*.json
 /var/
 /.phpunit.cache/
+
+/.unlazy/
+
+*.attachment-links.key

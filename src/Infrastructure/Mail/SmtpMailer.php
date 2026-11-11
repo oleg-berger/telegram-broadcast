@@ -3,12 +3,12 @@ declare(strict_types=1);
 
 namespace Broadcast\Infrastructure\Mail;
 
-use Broadcast\Application\MailGateway;
+use Broadcast\Application\AttachmentMailGateway;
 use Broadcast\Domain\ApiFailure;
 use PHPMailer\PHPMailer\Exception;
 use PHPMailer\PHPMailer\PHPMailer;
 
-final class SmtpMailer implements MailGateway
+final class SmtpMailer implements AttachmentMailGateway
 {
     public function __construct(
         private string $host,
@@ -20,6 +20,7 @@ final class SmtpMailer implements MailGateway
         private string $fromName,
         private string $replyTo,
         private bool $test = false,
+        private int $maxMessageBytes = 25_000_000,
     ) {
         if (!in_array($encryption, ['starttls', 'tls'], true) && !($test && $encryption === 'none')) {
             throw new \InvalidArgumentException('Secure SMTP is required.');
@@ -28,7 +29,14 @@ final class SmtpMailer implements MailGateway
 
     public function send(string $to, string $subject, string $text): void
     {
+        $this->sendWithAttachments($to, $subject, $text, []);
+    }
+
+    public function sendWithAttachments(string $to, string $subject, string $text, array $attachments): void
+    {
         $mail = new PHPMailer(true);
+        $smtp = new DeliverySmtp();
+        $mail->setSMTPInstance($smtp);
         try {
             $mail->isSMTP();
             $mail->Host = $this->host;
@@ -52,11 +60,12 @@ final class SmtpMailer implements MailGateway
             $mail->Subject = $subject;
             $mail->Body = $text;
             $mail->isHTML(false);
-            $mail->send();
+            MailAttachments::prepare($mail, $attachments, $this->maxMessageBytes);
+            $mail->postSend();
         } catch (Exception) {
             $code = (int) ($mail->getSMTPInstance()->getError()['smtp_code'] ?? 0);
             // Never propagate upstream messages: they may contain addresses or credentials.
-            throw new ApiFailure('SMTP delivery failed.', $code < 500);
+            throw new ApiFailure('SMTP delivery failed.', $code < 500, uncertain: $smtp->acceptanceUncertain());
         } finally {
             $mail->smtpClose();
         }
