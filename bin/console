@@ -12,6 +12,9 @@ use Broadcast\Infrastructure\Mail\SmtpMailer;
 use Broadcast\Infrastructure\Mail\GmailApiMailer;
 use Broadcast\Infrastructure\Runtime\CommandMenu;
 use Broadcast\Infrastructure\Runtime\Config;
+use Broadcast\Infrastructure\Runtime\AttachmentConfig;
+use Broadcast\Infrastructure\Files\LocalAttachmentStorage;
+use Broadcast\Infrastructure\Files\SqliteAttachmentLinks;
 use Broadcast\Infrastructure\Runtime\DailyBackup;
 use Broadcast\Infrastructure\Runtime\DatabaseReset;
 use Broadcast\Infrastructure\Runtime\Log;
@@ -86,6 +89,7 @@ try {
     }
 
     $config = Config::fromEnvironment();
+    $attachmentConfig = AttachmentConfig::fromEnvironment();
     if ($command === 'check') { $log->event('configuration_valid'); exit(0); }
     $telegram = new TelegramClient($config->telegramToken);
     if ($command === 'commands') { (new CommandMenu())->install($telegram, $config); $log->event('commands_updated'); exit(0); }
@@ -93,12 +97,16 @@ try {
     $store = new SqliteStore($path, $config->teamChannelId);
     $store->migrate();
     $poller = new Poller($store, $telegram, new Kernel($store, $config->adminIds, $config->superadminIds, $config->adminsCanApproveUsers, $config->adminsCanExportUsers));
+    $attachments = $attachmentConfig->attachmentPath !== null ? new LocalAttachmentStorage($attachmentConfig->attachmentPath) : null;
+    $attachmentLinks = $attachments !== null && $attachmentConfig->publicBaseUrl !== null
+        ? new SqliteAttachmentLinks($path, $attachments, $attachmentConfig->publicBaseUrl) : null;
     $worker = new Worker($store, $telegram, new OpenAiTranslator($config->translatorApiKey, $config->translatorApiUrl, $config->translatorModel, $config->translatorTemperature),
         static function (array $event) use ($log): void {
             $name = $event['event'];
             unset($event['event']);
             $log->event($name, $event);
-        }, $config->mailTransport === 'gmail' ? new GmailApiMailer(...$config->gmail) : new SmtpMailer(...$config->smtp), new XlsxUsers(), $config->mailSendIntervalSeconds);
+        }, $config->mailTransport === 'gmail' ? new GmailApiMailer(...[...$config->gmail, 'maxMessageBytes' => $attachmentConfig->mailMaxMessageBytes]) : new SmtpMailer(...[...$config->smtp, 'maxMessageBytes' => $attachmentConfig->mailMaxMessageBytes]), new XlsxUsers(), $config->mailSendIntervalSeconds,
+        attachments: $attachments, attachmentLinks: $attachmentLinks, mailMaxMessageBytes: $attachmentConfig->mailMaxMessageBytes);
     $dailyBackup = new DailyBackup($path, $backupDirectory, $runtimeDirectory);
     $stop = new StopSignal();
     $once = in_array('--once', $argv, true);

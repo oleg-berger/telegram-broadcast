@@ -123,6 +123,17 @@ final class TeamChannelTest extends TestCase
         return array_values(array_filter($this->sent, static fn (array $message): bool => str_contains($message[1], 'Telegram:')));
     }
 
+    public function testUncertainChannelPublicationIsReportedAndNeverRetried(): void
+    {
+        $this->channelFailure=new ApiFailure('uncertain',uncertain:true);
+        $this->approve(author:100);$this->drain();
+        self::assertCount(1,$this->reports());
+        self::assertStringContainsString(Messages::text('RU','broadcast_report_team_unknown',['unknown'=>1]),$this->reports()[0][1]);
+        self::assertFalse($this->store->retryBroadcast(1));
+        $db=(new \ReflectionProperty($this->store,'db'))->getValue($this->store);
+        self::assertSame('unknown',$db->query("SELECT status FROM jobs WHERE kind='channel_post'")->fetchColumn());
+    }
+
     public function testOnlyApprovedAnnouncementIsPublishedWithJustRussianSubjectAndBody(): void
     {
         $this->user(1, 'FR');
