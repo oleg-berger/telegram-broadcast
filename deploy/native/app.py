@@ -37,7 +37,16 @@ class Installer:
         write_private(self.state_file, json.dumps(self.state, ensure_ascii=False, indent=2) + '\n')
 
     def environment(self):
-        return read_env(self.root / '.env')
+        values = read_env(self.root / '.env')
+        # Match the existing services' WorkingDirectory, regardless of where
+        # the operator invokes the installer. Do not resolve away symlinks.
+        for key in ('DATABASE_PATH', 'ATTACHMENTS_PATH', 'ATTACHMENTS_LINK_KEY_FILE',
+                    'GMAIL_OAUTH_CLIENT_FILE', 'GMAIL_OAUTH_TOKEN_FILE',
+                    'WHATSAPP_TOKEN_FILE', 'WHATSAPP_ALLOWED_RECIPIENTS_FILE'):
+            value = values.get(key)
+            if value and not Path(value).is_absolute():
+                values[key] = str(self.root / value)
+        return values
 
     def systemctl(self, *args):
         return run(['systemctl', *args], label='systemd')

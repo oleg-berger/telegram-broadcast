@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+import sqlite3
 import unittest
 from unittest.mock import patch
 
@@ -57,6 +58,46 @@ class EnvironmentTests(unittest.TestCase):
         with self.assertRaises(Failure) as failure:
             run([sys.executable, '-c', 'import sys; print("SECRET"); sys.exit(1)'], label='check')
         self.assertNotIn('SECRET', str(failure.exception))
+
+    def test_installer_resolves_relative_paths_from_project_without_rewriting_env(self):
+        root = self.path.parent
+        settings = {
+            'DATABASE_PATH': './var/broadcast.sqlite',
+            'ATTACHMENTS_PATH': './var/attachments',
+            'ATTACHMENTS_LINK_KEY_FILE': './secrets/signing.key',
+            'GMAIL_OAUTH_CLIENT_FILE': 'secrets/client.json',
+            'GMAIL_OAUTH_TOKEN_FILE': 'secrets/gmail.json',
+            'WHATSAPP_TOKEN_FILE': 'secrets/whatsapp.json',
+            'WHATSAPP_ALLOWED_RECIPIENTS_FILE': 'secrets/allowed.json',
+        }
+        self.path.write_text(''.join(f'{key}={value}\n' for key, value in settings.items()) + 'MAIL_FROM_NAME=Same name\n')
+        original = self.path.read_bytes()
+        installer = Installer(root)
+        # unittest executes from the repository, not this temporary project.
+        result = installer.environment()
+        for key, value in settings.items():
+            self.assertEqual(result[key], str(root / value), key)
+        self.assertEqual(result['MAIL_FROM_NAME'], 'Same name')
+        self.assertEqual(self.path.read_bytes(), original)
+
+    def test_installer_keeps_absolute_and_empty_paths_unchanged(self):
+        absolute = str(self.path.parent / 'existing.sqlite')
+        self.path.write_text(f'DATABASE_PATH={absolute}\nATTACHMENTS_PATH=\n'.replace('\\', '/'))
+        raw = read_env(self.path)
+        self.assertEqual(Installer(self.path.parent).environment(), raw)
+
+    @unittest.skipIf(sys.platform == 'win32', 'Linux path validation runs in the integration image')
+    def test_relative_path_resolution_does_not_bypass_symlink_or_parent_checks(self):
+        from native.common import safe_path
+        root = self.path.parent
+        real = root / 'real'
+        real.mkdir()
+        (root / 'alias').symlink_to(real, target_is_directory=True)
+        installer = Installer(root)
+        for value in ('./alias/app.sqlite', '../outside.sqlite'):
+            self.path.write_text('DATABASE_PATH=' + value + '\n')
+            with self.assertRaises(Failure):
+                safe_path(installer.environment()['DATABASE_PATH'])
 
 
 class ConfigTests(unittest.TestCase):
@@ -131,6 +172,25 @@ class WorkflowTests(unittest.TestCase):
             with self.assertRaises(Failure):
                 self.installer.import_contacts('contacts.xlsx', [], apply=True)
             php.assert_not_called()
+
+    def test_backup_copies_existing_relative_database_from_project_directory(self):
+        source = self.root / 'var' / 'broadcast.sqlite'
+        source.parent.mkdir()
+        with sqlite3.connect(source) as db:
+            db.execute('CREATE TABLE marker (value TEXT)')
+            db.execute("INSERT INTO marker VALUES ('existing-data')")
+        (self.root / '.env').write_text('DATABASE_PATH=./var/broadcast.sqlite\n')
+        original = (self.root / '.env').read_bytes()
+        backups = self.root / 'backups'
+        def local_path(value):
+            return backups if str(value) == '/var/backups/telegram-broadcast' else Path(value)
+        with patch('native.app.Path', side_effect=local_path), patch('native.app.DATA', self.root / 'data'), patch.object(self.installer, 'require_stopped'), patch.object(self.installer, 'unit_exists', return_value=False), patch('native.app.run', return_value='a' * 40):
+            self.installer.backup()
+        saved = Path(self.installer.state['last_backup'])
+        with sqlite3.connect(saved / 'application.sqlite') as db:
+            self.assertEqual(db.execute('SELECT value FROM marker').fetchone(), ('existing-data',))
+        self.assertEqual(json.loads((saved / 'manifest.json').read_text())['database_path'], str(source))
+        self.assertEqual((self.root / '.env').read_bytes(), original)
 
     def test_mysql_rerun_preserves_password_and_does_not_alter_existing_user(self):
         (self.root / '.env').write_text('DATABASE_PATH=/existing.sqlite\n')

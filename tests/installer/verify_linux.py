@@ -5,11 +5,13 @@ import os
 from pathlib import Path
 import shutil
 import socket
+import sqlite3
 import subprocess
 import sys
 import time
 import urllib.error
 import urllib.request
+from unittest.mock import patch
 
 sys.path.insert(0, '/app/deploy')
 from native.app import Installer, DATA, BINARY
@@ -24,10 +26,21 @@ app.accounts()
 assert DATA.stat().st_mode & 0o777 == 0o755
 Path('/app/var').mkdir(mode=0o700)
 shutil.chown('/app/var', user='bot', group='bot')
-write_private('/app/.env', 'DATABASE_PATH=/app/var/bot.sqlite\n')
+write_private('/app/.env', 'DATABASE_PATH=./var/bot.sqlite\n')
 shutil.chown('/app/.env', user='bot', group='bot')
+os.chdir('/')
+assert app.environment()['DATABASE_PATH'] == '/app/var/bot.sqlite'
 app.php('bin/console', 'migrate')
+with sqlite3.connect('/app/var/bot.sqlite') as db:
+    db.execute('CREATE TABLE installer_path_probe (value TEXT NOT NULL)')
+    db.execute("INSERT INTO installer_path_probe VALUES ('existing-data')")
+with patch.object(app, 'unit_exists', return_value=False), patch.object(app, 'require_stopped'), patch('native.app.run', side_effect=lambda args, **kwargs: 'a' * 40 if args[:2] == ['git', 'rev-parse'] else run(args, **kwargs)):
+    app.backup()
+with sqlite3.connect(Path(app.state['last_backup']) / 'application.sqlite') as db:
+    assert db.execute('SELECT value FROM installer_path_probe').fetchone() == ('existing-data',)
+assert not Path('/var/bot.sqlite').exists()
 app.attachments()
+assert 'DATABASE_PATH=./var/bot.sqlite' in Path('/app/.env').read_text()
 # Re-running permissions setup must preserve data and an already-created signing key.
 app.php('deploy/native/maintenance.php', 'probe')
 key = Path('/var/lib/telegram-broadcast/private/signing.key').read_bytes()
@@ -107,7 +120,7 @@ try:
         assert client.connect_ex((container_ip, 21465)) != 0, 'Transport must not listen on public interfaces'
     token = json.loads(run([BINARY / 'token', '-session', 'whatsapp-production'], label='offline token', env=transport_env))
     assert token['session'] == 'whatsapp-production' and token['token']
-    print('NATIVE_LINUX_VERIFIED fpm_https=1 fresh_file_acl=1 secret_isolation=1 units=1 go_loopback=1')
+    print('NATIVE_LINUX_VERIFIED relative_database=1 backup_data=1 fpm_https=1 fresh_file_acl=1 secret_isolation=1 units=1 go_loopback=1')
 finally:
     fpm.terminate()
     keeper.terminate()
