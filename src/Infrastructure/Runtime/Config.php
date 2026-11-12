@@ -25,6 +25,7 @@ final readonly class Config
         public array $gmail,
         public int $mailSendIntervalSeconds,
         public ?int $teamChannelId,
+        public array $whatsapp,
     ) {}
 
     /** @param array<string, mixed> $environment */
@@ -104,13 +105,14 @@ final readonly class Config
             $gmail,
             self::integer($environment, 'MAIL_SEND_INTERVAL_SECONDS', 1, 86400, 2),
             self::teamChannel($environment),
+            self::whatsapp($environment),
         );
     }
 
     public static function fromEnvironment(): self
     {
         $environment = [];
-        foreach (['TELEGRAM_BOT_TOKEN', 'TELEGRAM_ADMIN_IDS', 'TELEGRAM_SUPERADMIN_IDS', 'TELEGRAM_TEAM_CHANNEL_ID', 'ADMINS_CAN_APPROVE_USERS', 'ADMINS_CAN_EXPORT_USERS', 'TRANSLATOR_API_KEY', 'TRANSLATOR_API_URL', 'DATABASE_PATH', 'APP_ENV', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_ENCRYPTION', 'SMTP_USERNAME', 'SMTP_PASSWORD', 'MAIL_FROM_ADDRESS', 'MAIL_FROM_NAME', 'MAIL_REPLY_TO', 'MAIL_SEND_INTERVAL_SECONDS', 'MAIL_TRANSPORT', 'GMAIL_OAUTH_CLIENT_FILE', 'GMAIL_OAUTH_TOKEN_FILE'] as $key) {
+        foreach (['TELEGRAM_BOT_TOKEN', 'TELEGRAM_ADMIN_IDS', 'TELEGRAM_SUPERADMIN_IDS', 'TELEGRAM_TEAM_CHANNEL_ID', 'ADMINS_CAN_APPROVE_USERS', 'ADMINS_CAN_EXPORT_USERS', 'TRANSLATOR_API_KEY', 'TRANSLATOR_API_URL', 'DATABASE_PATH', 'APP_ENV', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_ENCRYPTION', 'SMTP_USERNAME', 'SMTP_PASSWORD', 'MAIL_FROM_ADDRESS', 'MAIL_FROM_NAME', 'MAIL_REPLY_TO', 'MAIL_SEND_INTERVAL_SECONDS', 'MAIL_TRANSPORT', 'GMAIL_OAUTH_CLIENT_FILE', 'GMAIL_OAUTH_TOKEN_FILE', 'WHATSAPP_ENABLED', 'WHATSAPP_URL', 'WHATSAPP_SESSION', 'WHATSAPP_TOKEN_FILE', 'WHATSAPP_ALLOWED_RECIPIENTS_FILE'] as $key) {
             $value = getenv($key);
             if ($value !== false) {
                 $environment[$key] = $value;
@@ -151,6 +153,37 @@ final readonly class Config
         if (!in_array($value, ['true', 'false'], true)) { throw new InvalidArgumentException(self::ERROR); }
 
         return $value === 'true';
+    }
+
+    private static function whatsapp(array $environment): array
+    {
+        if (!self::flag($environment, 'WHATSAPP_ENABLED')) { return []; }
+        try {
+            $session = self::required($environment, 'WHATSAPP_SESSION');
+            $token = self::privateJson(self::required($environment, 'WHATSAPP_TOKEN_FILE'));
+            $allowed = self::privateJson(self::required($environment, 'WHATSAPP_ALLOWED_RECIPIENTS_FILE'));
+            if (($token['session'] ?? null) !== $session || !is_string($token['token'] ?? null)
+                || !array_is_list($allowed) || $allowed === []) {
+                throw new InvalidArgumentException(self::ERROR);
+            }
+            $config = ['baseUrl' => self::required($environment, 'WHATSAPP_URL'), 'session' => $session,
+                'token' => $token['token'], 'allowedRecipients' => $allowed];
+            // Construction validates the boundary without contacting the transport.
+            new \Broadcast\Infrastructure\WhatsApp\WppConnectClient(...$config);
+            return $config;
+        } catch (\Throwable) {
+            throw new InvalidArgumentException(self::ERROR);
+        }
+    }
+
+    private static function privateJson(string $path): array
+    {
+        if (!is_file($path) || !is_readable($path) || filesize($path) > 16384) {
+            throw new InvalidArgumentException(self::ERROR);
+        }
+        $data = json_decode(file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
+        if (!is_array($data)) { throw new InvalidArgumentException(self::ERROR); }
+        return $data;
     }
 
     private static function teamChannel(array $environment): ?int

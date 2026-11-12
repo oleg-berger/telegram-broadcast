@@ -272,6 +272,7 @@ final class ServiceTest extends TestCase
 
     public function testRetryjobRerunsFailedCommentOnlyForOwner(): void
     {
+        $this->store->ensureIdentity('telegram', '1');
         $this->store->queueComment(1, 'FR', 'Fix your phone.', 'Prefix', 100);
         $translator = new FakeTranslator();
         $translator->failure = new ApiFailure('quota');

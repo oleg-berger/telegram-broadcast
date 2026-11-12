@@ -1,0 +1,39 @@
+name: broadcast-whatsapp-spike
+
+services:
+  transport:
+    # The Dockerfile pins the HTTP server and the updated WhatsApp client.
+    image: broadcast-whatsapp-transport:cf1098f-9d2171c
+    build:
+      context: .
+    env_file:
+      - ../../secrets/whatsapp-spike/transport.env
+    environment:
+      PORT: "21465"
+      DATA_DIR: /data
+      AUTO_RESTORE_SESSIONS: "true"
+      ENABLE_MANAGER: "false"
+      ENABLE_EXPERIMENTAL_INTERACTIVES: "false"
+      WEBHOOK_URL: ""
+      NATS_URL: ""
+      AMQP_URL: ""
+      S3_ENDPOINT: ""
+    ports:
+      - "127.0.0.1:21465:21465"
+    volumes:
+      - ../../var/whatsapp-spike/data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    cpus: 1.0
+    mem_limit: 512m
+    pids_limit: 128
+    restart: "no"
+    stop_grace_period: 35s
+    # Upstream creates an INFO-level SDK logger without a configurable redactor.
+    logging:
+      driver: none

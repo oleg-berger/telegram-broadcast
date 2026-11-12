@@ -1,0 +1,85 @@
+--- a/internal/account/account.go
++++ b/internal/account/account.go
+@@ -24,6 +24,21 @@
+ 	Self() types.JID
+ }
+ type SDK struct{ *whatsmeow.Client }
++
++// An empty hash preserves the HTTP API's unconditional blocklist operations.
++func (s SDK) GetBlocklist(ctx context.Context) (*types.Blocklist, error) {
++	return s.Client.GetBlocklist(ctx, "")
++}
++
++func (s SDK) UpdateBlocklist(ctx context.Context, jid types.JID, action events.BlocklistChangeAction) (*types.Blocklist, error) {
++	return s.Client.UpdateBlocklist(ctx, jid, action, "")
++}
++
++func (s SDK) SetStatusMessage(ctx context.Context, text string) error {
++	return s.Client.SetStatusMessage(ctx, types.SetStatusInput{Text: &text})
++}
++
++var _ Client = SDK{}
+ 
+ func (s SDK) Self() types.JID {
+ 	if s.Store == nil || s.Store.ID == nil {
+--- a/internal/media/download_test.go
++++ b/internal/media/download_test.go
+@@ -21,6 +21,17 @@
+ type roundTripFunc func(*http.Request) (*http.Response, error)
+ 
+ func (fn roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return fn(r) }
++
++type downloadFixtureClient struct{ *whatsmeow.Client }
++
++// New SDK downloads discover media hosts over an authenticated connection.
++// Keep these offline fixtures on the real SDK's decryption and file-write path.
++func (c downloadFixtureClient) DownloadToFile(ctx context.Context, msg whatsmeow.DownloadableMessage, file whatsmeow.File) error {
++	return c.DangerousInternals().DownloadAndDecryptToFile(
++		ctx, "https://mmg.whatsapp.net"+msg.GetDirectPath(), msg.GetMediaKey(),
++		whatsmeow.GetMediaType(msg), msg.GetFileEncSHA256(), msg.GetFileSHA256(), file,
++	)
++}
+ 
+ // Use the real SDK decryption path against an in-memory HTTP transport.
+ func TestDownloadWithRealSDK(t *testing.T) {
+@@ -62,15 +73,18 @@
+ 				payload[0] ^= 1
+ 			}
+ 			cli.SetMediaHTTPClient(&http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+-				return &http.Response{StatusCode: tc.status, Header: make(http.Header), Body: io.NopCloser(bytes.NewReader(payload)), ContentLength: int64(len(payload)), Request: r}, nil
++				if r.URL.Host != "mmg.whatsapp.net" || r.URL.Path != "/fixture" {
++					t.Fatal("unexpected fixture destination")
++				}
++				return &http.Response{StatusCode: tc.status, Header: make(http.Header), Body: io.NopCloser(bytes.NewReader(payload)), ContentLength: int64(len(payload)), Request: r}, nil
+ 			})})
+ 			a, ok := attachment(Message(kind, whatsmeow.UploadResponse{
+-				URL: "https://mmg.whatsapp.net/fixture", MediaKey: key, FileEncSHA256: encHash[:], FileSHA256: plainHash[:], FileLength: uint64(len(plain)),
++				URL: "https://mmg.whatsapp.net/fixture", DirectPath: "/fixture", MediaKey: key, FileEncSHA256: encHash[:], FileSHA256: plainHash[:], FileLength: uint64(len(plain)),
+ 			}, "application/octet-stream", "fixture", ""))
+ 			if !ok {
+ 				t.Fatal("descriptor rejected")
+ 			}
+-			got, err := Download(context.Background(), cli, a)
++			got, err := Download(context.Background(), downloadFixtureClient{cli}, a)
+ 			if tc.corrupt || tc.status != 200 {
+ 				if err == nil || got != nil {
+ 					t.Fatal("failed integrity/network response returned content")
+--- a/internal/httpapi/roadmap_test.go
++++ b/internal/httpapi/roadmap_test.go
+@@ -19,7 +19,6 @@
+ 	"github.com/wppconnect-team/wppconnect-server-go/internal/eventbus"
+ 	"github.com/wppconnect-team/wppconnect-server-go/internal/history"
+ 	"github.com/wppconnect-team/wppconnect-server-go/internal/media"
+-	"go.mau.fi/whatsmeow"
+ 	"go.mau.fi/whatsmeow/appstate"
+ 	"go.mau.fi/whatsmeow/proto/waE2E"
+ 	"go.mau.fi/whatsmeow/types"
+@@ -27,7 +26,7 @@
+ )
+ 
+ type roadmapAccount struct {
+-	*whatsmeow.Client
++	account.SDK
+ 	calls int
+ 	err   error
+ }

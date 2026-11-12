@@ -1,0 +1,15 @@
+# Local manual test stack. Never point this override at the workbook preview catalogue.
+x-directory: &directory
+  CONTACTS_MYSQL_DSN: "mysql:host=host.docker.internal;port=13306;dbname=broadcast_live_test;charset=utf8mb4"
+  CONTACTS_MYSQL_USER: broadcast_test
+  CONTACTS_MYSQL_PASSWORD: local-test-only
+  ATTACHMENTS_PUBLIC_BASE_URL: ""
+services:
+  init:
+    environment: *directory
+  poll:
+    environment: *directory
+  worker:
+    environment: *directory
+  whatsapp-poll:
+    environment: *directory

@@ -16,7 +16,7 @@ final class DatabaseReset
             throw new InvalidArgumentException('Reset requires an existing database.');
         }
         $runtime = dirname($path) . '/runtime';
-        $locks = [ProcessLock::acquire($runtime, 'poll'), ProcessLock::acquire($runtime, 'worker'), ProcessLock::acquire($runtime, 'backup')];
+        $locks = [ProcessLock::acquire($runtime, 'poll'), ProcessLock::acquire($runtime, 'worker'), ProcessLock::acquire($runtime, 'whatsapp-poll'), ProcessLock::acquire($runtime, 'backup')];
         $store = new SqliteStore($path);
         $before = $store->inspectBusinessData();
         if (!$confirm) {

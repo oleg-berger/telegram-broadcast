@@ -1,4 +1,128 @@
 {
+  "attachments_added": ["В черновик #{id} добавлено файлов: {count}.\nОтправьте остальные или нажмите кнопку «Готово».", "Files added to draft #{id}: {count}.\nSend more files or press Done.", "Archivos añadidos al borrador #{id}: {count}.\nEnvíe más archivos o pulse Listo.", "Fichiers ajoutés au brouillon nº {id} : {count}.\nEnvoyez les autres fichiers ou appuyez sur Terminé."],
+  "attachment_remove_files": ["Удалить файлы", "Delete files", "Eliminar archivos", "Supprimer des fichiers"],
+  "broadcast_report_team_unknown": [
+    "Канал команды (RU): неопределённый результат {unknown}. Автоматический повтор отключён.",
+    "Team channel (RU): {unknown} unknown outcomes. Automatic retry is disabled.",
+    "Canal del equipo (RU): {unknown} resultados desconocidos. Reintento automático desactivado.",
+    "Canal de l’équipe (RU) : {unknown} résultats inconnus. Nouvelle tentative automatique désactivée."
+  ],
+  "broadcast_audience_preparing": [
+    "Рассылка #{id} одобрена. Подготовка аудитории: ожидаем синхронизацию и окончательный снимок каталога. Отправка ещё не началась.",
+    "Broadcast #{id} approved. Preparing the audience: waiting for synchronization and the final directory snapshot. Delivery has not started.",
+    "Envío #{id} aprobado. Preparando la audiencia: esperamos la sincronización y la instantánea definitiva del catálogo. La entrega aún no ha empezado.",
+    "Envoi #{id} approuvé. Préparation de l’audience : synchronisation et instantané définitif du catalogue en attente. La livraison n’a pas commencé."
+  ],
+  "broadcast_audience_ready": [
+    "Аудитория рассылки #{id} зафиксирована: Telegram — {telegram}; WhatsApp — {whatsapp}; email — {email}. Перевод и отправка выполнятся по очереди.",
+    "Audience for broadcast #{id} captured: Telegram — {telegram}; WhatsApp — {whatsapp}; email — {email}. Translation and delivery will run through the queue.",
+    "Audiencia del envío #{id} fijada: Telegram — {telegram}; WhatsApp — {whatsapp}; email — {email}. La traducción y la entrega se procesarán en la cola.",
+    "Audience de l’envoi #{id} établie : Telegram — {telegram} ; WhatsApp — {whatsapp} ; email — {email}. Traduction et livraison seront traitées dans la file."
+  ],
+  "directory_sync_failed": [
+    "Синхронизация каталога остановлена: задание #{id}. Новые рассылки ожидают исправления. Суперадминистратор может повторить: /retryjob {id}.",
+    "Directory synchronization stopped: job #{id}. New broadcasts wait for a fix. A superadmin can retry: /retryjob {id}.",
+    "Sincronización del catálogo detenida: tarea #{id}. Los envíos esperan la corrección. El superadministrador puede repetir: /retryjob {id}.",
+    "Synchronisation du catalogue arrêtée : tâche #{id}. Les envois attendent une correction. Un superadministrateur peut réessayer : /retryjob {id}."
+  ],
+  "directory_sync_waiting": [
+    "Каталог недоступен: задание #{id}. Синхронизация продолжит повторяться, новые рассылки ожидают её завершения.",
+    "Directory unavailable: job #{id}. Synchronization will keep retrying; new broadcasts wait for it to finish.",
+    "Catálogo no disponible: tarea #{id}. La sincronización seguirá intentándolo; los envíos esperan a que termine.",
+    "Catalogue indisponible : tâche #{id}. La synchronisation sera réessayée ; les envois attendent sa fin."
+  ],
+  "directory_snapshot_failed": [
+    "Не удалось подготовить аудиторию рассылки #{id}. Доставка этой аудитории не началась. После исправления каталога: /retry {id}.",
+    "Could not prepare the audience for broadcast #{id}. Delivery to this audience has not started. After fixing the directory: /retry {id}.",
+    "No se pudo preparar la audiencia del envío #{id}. La entrega a esta audiencia no ha empezado. Tras corregir el catálogo: /retry {id}.",
+    "Impossible de préparer l’audience de l’envoi #{id}. La livraison à cette audience n’a pas commencé. Après correction du catalogue : /retry {id}."
+  ],
+  "draft_audience_counts": [
+    "Предварительная аудитория: Telegram — {telegram}; WhatsApp — {whatsapp}; email — {email}. Окончательный список фиксируется после одобрения.",
+    "Estimated audience: Telegram — {telegram}; WhatsApp — {whatsapp}; email — {email}. The final list is captured after approval.",
+    "Audiencia estimada: Telegram — {telegram}; WhatsApp — {whatsapp}; email — {email}. La lista definitiva se fija tras la aprobación.",
+    "Audience estimée : Telegram — {telegram} ; WhatsApp — {whatsapp} ; email — {email}. La liste définitive est établie après approbation."
+  ],
+  "start_hint": [
+    "/start — Русский / English / Español / Français", "/start — Русский / English / Español / Français", "/start — Русский / English / Español / Français", "/start — Русский / English / Español / Français"
+  ],
+  "link_offer": [
+    "Возможно, у вас уже есть заявка. Чтобы подключить этот мессенджер, отправьте /link и подтвердите запрос в ранее подключённом мессенджере. Нет доступа к нему — /linkhelp.",
+    "You may already have an application. Send /link to connect this messenger, then confirm in your previously connected messenger. If you cannot access it, send /linkhelp.",
+    "Es posible que ya tenga una solicitud. Envíe /link para conectar este servicio de mensajería y confirme en el que ya tenía conectado. Si no tiene acceso, envíe /linkhelp.",
+    "Vous avez peut-être déjà une demande. Envoyez /link pour connecter cette messagerie, puis confirmez dans la messagerie déjà connectée. Si vous n’y avez plus accès, envoyez /linkhelp."
+  ],
+  "link_manual_offer": [
+    "Для подключения мессенджера нужна проверка сотрудником. Отправьте /linkhelp. Данные существующей заявки не раскрываются.",
+    "Connecting this messenger requires a staff review. Send /linkhelp. Existing application details are not disclosed.",
+    "La conexión requiere una revisión del equipo. Envíe /linkhelp. No se revelan los datos de la solicitud existente.",
+    "La connexion nécessite une vérification par l’équipe. Envoyez /linkhelp. Les informations de la demande existante restent confidentielles."
+  ],
+  "link_pending": [
+    "Подтвердите подключение в ранее подключённом мессенджере в течение 15 минут. Нет доступа — /linkhelp.",
+    "Confirm the connection in your previously connected messenger within 15 minutes. If you cannot access it, send /linkhelp.",
+    "Confirme la conexión en su servicio de mensajería anterior en un plazo de 15 minutos. Si no tiene acceso, envíe /linkhelp.",
+    "Confirmez la connexion dans votre messagerie déjà connectée sous 15 minutes. Si vous n’y avez plus accès, envoyez /linkhelp."
+  ],
+  "link_manual_pending": [
+    "Запрос на подключение передан сотруднику. Дождитесь результата проверки.",
+    "Your connection request has been sent to the team. Please wait for the review result.",
+    "Su solicitud de conexión se ha enviado al equipo. Espere el resultado de la revisión.",
+    "Votre demande de connexion a été transmise à l’équipe. Veuillez attendre le résultat de la vérification."
+  ],
+  "link_confirm_prompt": [
+    "Запрошено подключение второго мессенджера к вашей заявке. Подтвердите, только если запрос отправили вы. Подтверждение действует 15 минут. Если запрос не ваш, не подтверждайте.",
+    "A second messenger has requested a connection to your application. Confirm only if you made this request. Confirmation expires in 15 minutes. If this was not you, do not confirm.",
+    "Se ha solicitado conectar otro servicio de mensajería a su solicitud. Confirme solo si usted lo solicitó. La confirmación caduca en 15 minutos. Si no fue usted, no confirme.",
+    "Une connexion à une seconde messagerie a été demandée pour votre compte. Confirmez uniquement si vous avez fait cette demande. La confirmation expire dans 15 minutes. Sinon, ne confirmez pas."
+  ],
+  "link_confirm_button": ["Подтвердить подключение", "Confirm connection", "Confirmar conexión", "Confirmer la connexion"],
+  "link_confirm_code": [
+    "Запрошено подключение второго мессенджера к вашей заявке. Подтвердите, только если запрос отправили вы. Чтобы подтвердить именно этот запрос, скопируйте и отправьте команду целиком в течение 15 минут:\n\n/confirm {token}\n\nЕсли запрос не ваш, не отправляйте команду. Ответ цифрой не подтверждает подключение.",
+    "A second messenger has requested a connection to your application. Confirm only if you made this request. To confirm this specific request, copy and send the entire command within 15 minutes:\n\n/confirm {token}\n\nIf this was not you, do not send the command. A numeric reply does not confirm the connection.",
+    "Se ha solicitado conectar otro servicio de mensajería a su solicitud. Confirme solo si usted lo solicitó. Para confirmar esta solicitud concreta, copie y envíe el comando completo en un plazo de 15 minutos:\n\n/confirm {token}\n\nSi no fue usted, no envíe el comando. Una respuesta numérica no confirma la conexión.",
+    "Une connexion à une seconde messagerie a été demandée pour votre compte. Confirmez uniquement si vous avez fait cette demande. Pour confirmer cette demande précise, copiez et envoyez la commande complète sous 15 minutes :\n\n/confirm {token}\n\nSinon, n’envoyez pas la commande. Une réponse numérique ne confirme pas la connexion."
+  ],
+  "link_complete": [
+    "Мессенджер подключён к общей заявке. Ранее подключённый мессенджер сохранён. Рассылки доступны после одобрения заявки.",
+    "The messenger is connected to your shared application. Your previous messenger remains connected. Broadcasts are available after application approval.",
+    "El servicio de mensajería está conectado a su solicitud compartida. El anterior sigue conectado. Los anuncios estarán disponibles cuando se apruebe la solicitud.",
+    "La messagerie est connectée à votre demande commune. Votre messagerie précédente reste connectée. Les annonces sont disponibles après l’approbation de la demande."
+  ],
+  "link_unavailable": [
+    "Сейчас запрос недоступен. Проверьте введённые контакты. Если запрос уже отправлен, дождитесь подтверждения или окончания 15 минут; число запросов ограничено.",
+    "The request is currently unavailable. Check the contacts you entered. If a request is already pending, wait for confirmation or for 15 minutes to expire; requests are rate limited.",
+    "La solicitud no está disponible ahora. Revise los contactos introducidos. Si ya hay una solicitud pendiente, espere la confirmación o a que pasen 15 minutos; el número de solicitudes está limitado.",
+    "La demande est indisponible pour le moment. Vérifiez les coordonnées saisies. Si une demande est en cours, attendez sa confirmation ou l’expiration des 15 minutes ; le nombre de demandes est limité."
+  ],
+  "link_invalid": ["Подтверждение недоступно, просрочено или уже использовано.", "The confirmation is unavailable, expired or already used.", "La confirmación no está disponible, ha caducado o ya se ha utilizado.", "La confirmation est indisponible, expirée ou déjà utilisée."],
+  "link_rejected": ["Подключение не подтверждено сотрудником. Можно продолжить свою регистрацию или обратиться за помощью: /linkhelp.", "The team did not approve the connection. You can continue your registration or ask for help: /linkhelp.", "El equipo no aprobó la conexión. Puede continuar su registro o pedir ayuda: /linkhelp.", "L’équipe n’a pas approuvé la connexion. Vous pouvez poursuivre votre inscription ou demander de l’aide : /linkhelp."],
+  "link_staff_pending": ["Запрос подключения #{id} требует проверки. /links — список; /linkresolve ID approve|reject ПРИЧИНА — решение.", "Connection request #{id} requires review. /links lists requests; /linkresolve ID approve|reject REASON records a decision.", "La solicitud de conexión #{id} requiere revisión. /links muestra la lista; /linkresolve ID approve|reject MOTIVO registra la decisión.", "La demande de connexion #{id} doit être vérifiée. /links affiche les demandes ; /linkresolve ID approve|reject MOTIF enregistre une décision."],
+  "link_staff_card": [
+    "Подключение #{id}: заявка #{source} → #{target}\nРучная проверка: {manual}; срок: {expires}\nПроверьте владельца обоих аккаунтов вне неподтверждённого диалога. Анкеты: /requests ID. Решение: /linkresolve {id} approve|reject ПРИЧИНА",
+    "Connection #{id}: application #{source} → #{target}\nManual review: {manual}; expires: {expires}\nVerify both account owners outside the unconfirmed conversation. Applications: /requests ID. Decision: /linkresolve {id} approve|reject REASON",
+    "Conexión #{id}: solicitud #{source} → #{target}\nRevisión manual: {manual}; caduca: {expires}\nVerifique ambos propietarios fuera de la conversación no confirmada. Solicitudes: /requests ID. Decisión: /linkresolve {id} approve|reject MOTIVO",
+    "Connexion #{id} : demande #{source} → #{target}\nVérification manuelle : {manual} ; expiration : {expires}\nVérifiez les titulaires hors de la conversation non confirmée. Demandes : /requests ID. Décision : /linkresolve {id} approve|reject MOTIF"
+  ],
+  "link_staff_empty": ["Ожидающих запросов подключения нет.", "There are no pending connection requests.", "No hay solicitudes de conexión pendientes.", "Aucune demande de connexion en attente."],
+  "link_staff_usage": ["Укажите решение и обязательную причину: /linkresolve ID approve|reject ПРИЧИНА", "Enter the decision and a required reason: /linkresolve ID approve|reject REASON", "Indique la decisión y un motivo obligatorio: /linkresolve ID approve|reject MOTIVO", "Indiquez la décision et un motif obligatoire : /linkresolve ID approve|reject MOTIF"],
+  "link_staff_resolved": ["Решение по подключению сохранено в аудите.", "The connection decision has been recorded in the audit.", "La decisión de conexión se ha registrado en la auditoría.", "La décision de connexion a été enregistrée dans le journal d’audit."],
+  "link_staff_help": ["/links — запросы подключения\n/linkresolve ID approve|reject ПРИЧИНА — решение с аудитом", "/links — connection requests\n/linkresolve ID approve|reject REASON — audited decision", "/links — solicitudes de conexión\n/linkresolve ID approve|reject MOTIVO — decisión auditada", "/links — demandes de connexion\n/linkresolve ID approve|reject MOTIF — décision auditée"],
+  "stop_complete": ["Рассылки в Telegram, WhatsApp и на email прекращены.", "Broadcasts to Telegram, WhatsApp and email have been stopped.", "Se han detenido los anuncios por Telegram, WhatsApp y correo electrónico.", "Les annonces sur Telegram, WhatsApp et par courriel ont été arrêtées."],
+  "stop_pending": ["Просьба прекратить сообщения передана сотруднику. Ваша заявка пока не участвует в рассылках.", "Your request to stop messages has been sent to the team. Your application is not currently included in broadcasts.", "Su petición de dejar de recibir mensajes se ha enviado al equipo. Su solicitud todavía no está incluida en los anuncios.", "Votre demande d’arrêt des messages a été transmise à l’équipe. Votre demande ne participe pas actuellement aux diffusions."],
+  "stop_staff": ["Пользователь #{id} просит прекратить сообщения во всех каналах. Проверьте статус: /requests {id}. Одобренный пользователь отписан автоматически.", "User #{id} requests that messages stop across all channels. Check /requests {id}. Approved users are unsubscribed automatically.", "El usuario #{id} pide dejar de recibir mensajes en todos los canales. Revise /requests {id}. Los usuarios aprobados se dan de baja automáticamente.", "L’utilisateur #{id} demande l’arrêt des messages sur tous les canaux. Vérifiez /requests {id}. Les utilisateurs approuvés sont désabonnés automatiquement."],
+  "application_channels": ["Каналы: {channels}", "Channels: {channels}", "Canales: {channels}", "Canaux : {channels}"],
+  "channel_disabled": ["{channel} (отключён)", "{channel} (disabled)", "{channel} (desactivado)", "{channel} (désactivé)"],
+  "broadcast_report_whatsapp": [
+    "WhatsApp: принято {accepted}, доставлено {delivered}, прочитано {read}, результат неизвестен {unknown}, ошибок {failed}, пропущено {skipped}.",
+    "WhatsApp: accepted {accepted}, delivered {delivered}, read {read}, unknown {unknown}, failed {failed}, skipped {skipped}.",
+    "WhatsApp: aceptados {accepted}, entregados {delivered}, leídos {read}, desconocidos {unknown}, fallidos {failed}, omitidos {skipped}.",
+    "WhatsApp : acceptés {accepted}, livrés {delivered}, lus {read}, inconnus {unknown}, échoués {failed}, ignorés {skipped}."
+  ],
+  "wa_unavailable": ["WhatsApp недоступен. Очередь сохранена; Telegram и email продолжают работать.", "WhatsApp is unavailable. The queue is preserved; Telegram and email continue working.", "WhatsApp no está disponible. La cola se conserva; Telegram y el correo siguen funcionando.", "WhatsApp est indisponible. La file est conservée ; Telegram et le courriel continuent de fonctionner."],
+  "wa_recovered": ["Подключение WhatsApp восстановлено. Продолжаем отправку накопленной очереди.", "WhatsApp is connected again. The saved queue is resuming.", "Se ha restablecido WhatsApp. Se reanudan los envíos de la cola guardada.", "La connexion WhatsApp est rétablie. L’envoi de la file conservée reprend."],
+  "wa_uncertain": ["Результат WhatsApp-задания #{id} неизвестен. Автоматический повтор отключён, требуется проверка.", "The result of WhatsApp job #{id} is unknown. Automatic retry is disabled; review is required.", "El resultado de la tarea de WhatsApp #{id} es desconocido. El reintento automático está desactivado; se requiere revisión.", "Le résultat de la tâche WhatsApp #{id} est inconnu. La relance automatique est désactivée ; une vérification est nécessaire."],
+  "wa_job_failed": ["WhatsApp-задание #{id} не выполнено. После устранения причины: /retryjob {id}.", "WhatsApp job #{id} failed. After fixing the cause: /retryjob {id}.", "La tarea de WhatsApp #{id} falló. Tras corregir la causa: /retryjob {id}.", "La tâche WhatsApp #{id} a échoué. Après correction de la cause : /retryjob {id}."],
   "draft_send": [
     "📨 Разослать", "📨 Send broadcast", "📨 Enviar anuncio", "📨 Diffuser"
   ],
@@ -367,5 +491,84 @@
     "Imén Nails news for registered users. Complete your details: after approval, announcements will arrive in Telegram and by email.\n\n/start — register or check application status\n/language — change language\n/help — help\nReplies to announcements are not monitored.",
     "Noticias de Imén Nails para usuarios registrados. Complete sus datos: tras la aprobación, recibirá anuncios en Telegram y por email.\n\n/start — registro o estado de la solicitud\n/language — cambiar idioma\n/help — ayuda\nNo se atienden las respuestas a los anuncios.",
     "Actualités Imén Nails pour les utilisateurs inscrits. Complétez votre dossier : après validation, vous recevrez les annonces sur Telegram et par e-mail.\n\n/start — inscription ou état de la demande\n/language — changer de langue\n/help — aide\nLes réponses aux annonces ne sont pas traitées."
+  ],
+
+  "attachment_finish": [
+    "Готово",
+    "Done",
+    "Listo",
+    "Terminé"
+  ],
+  "attachment_download_failed": [
+    "Файл не загружен. Повтор: /retryjob {id}",
+    "Файл не загружен. Повтор: /retryjob {id}",
+    "Файл не загружен. Повтор: /retryjob {id}",
+    "Файл не загружен. Повтор: /retryjob {id}"
+  ],
+  "attachment_wait": [
+    "Загрузка файлов ещё не завершена либо не указана тема. После загрузки откройте черновик /draft ID или нажмите «Завершить».",
+    "Загрузка файлов ещё не завершена либо не указана тема. После загрузки откройте черновик /draft ID или нажмите «Завершить».",
+    "Загрузка файлов ещё не завершена либо не указана тема. После загрузки откройте черновик /draft ID или нажмите «Завершить».",
+    "Загрузка файлов ещё не завершена либо не указана тема. После загрузки откройте черновик /draft ID или нажмите «Завершить»."
+  ],
+  "attachment_preview_complete": [
+    "Комплект файлов показан полностью. Проверьте тему, текст и вложения перед подтверждением.",
+    "Комплект файлов показан полностью. Проверьте тему, текст и вложения перед подтверждением.",
+    "Комплект файлов показан полностью. Проверьте тему, текст и вложения перед подтверждением.",
+    "Комплект файлов показан полностью. Проверьте тему, текст и вложения перед подтверждением."
+  ],
+  "attachment_preview_interrupted": [
+    "Не удалось показать черновик #{id} полностью. Чтобы открыть предпросмотр заново, отправьте /draft {id}.",
+    "Could not show all of draft #{id}. Send /draft {id} to reopen the preview.",
+    "No se pudo mostrar todo el borrador #{id}. Envíe /draft {id} para volver a abrir la vista previa.",
+    "Le brouillon nº {id} n’a pas pu être affiché en entier. Envoyez /draft {id} pour rouvrir l’aperçu."
+  ],
+  "attachment_added": [
+    "Файл добавлен в черновик #{id}. Добавьте остальные и отправьте /done.",
+    "Файл добавлен в черновик #{id}. Добавьте остальные и отправьте /done.",
+    "Файл добавлен в черновик #{id}. Добавьте остальные и отправьте /done.",
+    "Файл добавлен в черновик #{id}. Добавьте остальные и отправьте /done."
+  ],
+  "attachment_invalid": [
+    "Файл недоступен, превышает 20 МБ или достигнут лимит 10 файлов. Проверьте имя и размер.",
+    "Файл недоступен, превышает 20 МБ или достигнут лимит 10 файлов. Проверьте имя и размер.",
+    "Файл недоступен, превышает 20 МБ или достигнут лимит 10 файлов. Проверьте имя и размер.",
+    "Файл недоступен, превышает 20 МБ или достигнут лимит 10 файлов. Проверьте имя и размер."
+  ],
+  "attachment_caption_ignored": [
+    "Подпись к файлу не добавлена. Укажите общий текст объявления через кнопку изменения текста.",
+    "Подпись к файлу не добавлена. Укажите общий текст объявления через кнопку изменения текста.",
+    "Подпись к файлу не добавлена. Укажите общий текст объявления через кнопку изменения текста.",
+    "Подпись к файлу не добавлена. Укажите общий текст объявления через кнопку изменения текста."
+  ],
+  "attachment_remove": [
+    "Удалить файл {position}",
+    "Удалить файл {position}",
+    "Удалить файл {position}",
+    "Удалить файл {position}"
+  ],
+  "attachment_input_help": [
+    "Добавьте фотографии или документы (до 10 файлов, каждый до 20 МБ). Отдельные подписи не используются. Затем нажмите «Готово».",
+    "Add photos or documents (up to 10 files, each up to 20 MB). Individual captions are not used. Then press Done.",
+    "Añada fotos o documentos (hasta 10 archivos de 20 MB cada uno). No se usan pies de archivo individuales. Después pulse Listo.",
+    "Ajoutez des photos ou des documents (10 fichiers maximum, 20 Mo chacun). Les légendes individuelles ne sont pas utilisées. Appuyez ensuite sur Terminé."
+  ],
+  "attachment_report_partial": [
+    "Неполные комплекты ({channel}): {count}.",
+    "Неполные комплекты ({channel}): {count}.",
+    "Неполные комплекты ({channel}): {count}.",
+    "Неполные комплекты ({channel}): {count}."
+  ],
+  "attachment_add": [
+    "Добавить файлы",
+    "Добавить файлы",
+    "Добавить файлы",
+    "Добавить файлы"
+  ],
+  "attachment_report_unknown": [
+    "Неопределённый результат ({channel}): {count}. Автоматический повтор отключён.",
+    "Unknown delivery result ({channel}): {count}. Automatic retry is disabled.",
+    "Resultado de entrega desconocido ({channel}): {count}. Reintento automático desactivado.",
+    "Résultat de livraison inconnu ({channel}) : {count}. Nouvelle tentative automatique désactivée."
   ]
 }
