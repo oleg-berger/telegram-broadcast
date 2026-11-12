@@ -13,6 +13,7 @@ final class ApiFailure extends RuntimeException
         public readonly bool $transient = false,
         public readonly ?int $retryAfter = null,
         public readonly bool $blocked = false,
+        public readonly bool $uncertain = false,
     ) {
         parent::__construct($message);
     }

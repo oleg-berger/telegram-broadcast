@@ -20,6 +20,18 @@ final class CommandMenu
         foreach ($translations as $language => $labels) {
             $commands = [];
             foreach (['start', 'language', 'help'] as $i => $command) { $commands[] = ['command' => $command, 'description' => $labels[$i]]; }
+            if ($config->whatsapp !== []) {
+                $linkLabels = [
+                    '' => ['Connect another messenger', 'Get help connecting accounts'],
+                    'ru' => ['Подключить второй мессенджер', 'Помощь с привязкой аккаунта'],
+                    'en' => ['Connect another messenger', 'Get help connecting accounts'],
+                    'es' => ['Conectar otro mensajero', 'Ayuda para vincular cuentas'],
+                    'fr' => ['Associer une autre messagerie', 'Aide pour associer les comptes'],
+                ];
+                foreach (['link', 'linkhelp'] as $i => $command) {
+                    $commands[] = ['command' => $command, 'description' => $linkLabels[$language][$i]];
+                }
+            }
             $this->call($telegram, $commands, ['type' => 'default'], $language);
         }
         foreach (array_unique([...$config->adminIds, ...$config->superadminIds]) as $id) {
@@ -29,6 +41,10 @@ final class CommandMenu
             if ($super || $config->adminsCanExportUsers) { $items['userdata'] = 'Выгрузить общую базу Excel'; }
             if ($super || $config->adminsCanApproveUsers || $config->adminsCanExportUsers) { $items['retryjob'] = 'Повторить ошибку комментария или Excel'; }
             if ($super) { $items['unsubscribe'] = 'Отписать пользователя'; }
+            if ($super && $config->whatsapp !== []) {
+                $items['links'] = 'Запросы привязки мессенджеров';
+                $items['linkresolve'] = 'Решение по привязке с причиной';
+            }
             $commands = [];
             foreach ($items as $command => $description) { $commands[] = compact('command', 'description'); }
             foreach (array_keys($translations) as $language) { $this->call($telegram, $commands, ['type' => 'chat', 'chat_id' => $id], $language); }

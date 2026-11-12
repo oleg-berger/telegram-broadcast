@@ -1,0 +1,27 @@
+# Run with compose.whatsapp.yaml. Only the explicit smoke service can send; no poller starts.
+services:
+  smoke:
+    extends:
+      file: compose.whatsapp.yaml
+      service: worker
+    restart: "no"
+    entrypoint: ["php", "/app/tools/whatsapp/multichannel-smoke.php"]
+    command: ["inspect"]
+    depends_on: !reset {}
+    environment:
+      DATABASE_PATH: /smoke/application.sqlite
+      ATTACHMENTS_PATH: /smoke/attachments
+      ATTACHMENTS_LINK_KEY_FILE: ""
+      CONTACTS_MYSQL_DSN: "mysql:host=host.docker.internal;port=13306;dbname=broadcast_smoke_test;charset=utf8mb4"
+      CONTACTS_MYSQL_USER: broadcast_test
+      CONTACTS_MYSQL_PASSWORD: local-test-only
+    volumes: !override
+      - smoke-data:/smoke
+      - app-data:/seed:ro
+      - ./tools/whatsapp/multichannel-smoke.php:/app/tools/whatsapp/multichannel-smoke.php:ro
+      - ./secrets/whatsapp-spike/session-token.json:/run/secrets/whatsapp-token.json:ro
+      - ./secrets/whatsapp-app/allowed-recipients.json:/run/secrets/whatsapp-allowed.json:ro
+      - ./secrets/gmail-client.json:/run/secrets/gmail-client.json:ro
+      - ./secrets/gmail-token.json:/run/secrets/gmail-token.json:ro
+volumes:
+  smoke-data:

@@ -1,0 +1,131 @@
+name: broadcast-whatsapp-test
+
+x-app: &app
+  image: broadcast-whatsapp-app:local
+  build:
+    context: .
+    dockerfile: Dockerfile.whatsapp
+    network: none
+  env_file: .env
+  environment:
+    DATABASE_PATH: /data/application.sqlite
+    ATTACHMENTS_PATH: /attachments
+    ATTACHMENTS_LINK_KEY_FILE: /private-links/signing.key
+    APP_ENV: test
+    MAIL_TRANSPORT: gmail
+    GMAIL_OAUTH_CLIENT_FILE: /run/secrets/gmail-client.json
+    GMAIL_OAUTH_TOKEN_FILE: /run/secrets/gmail-token.json
+    TELEGRAM_TEAM_CHANNEL_ID: ""
+    WHATSAPP_ENABLED: "true"
+    WHATSAPP_URL: http://127.0.0.1:21465
+    WHATSAPP_SESSION: whatsapp-test
+    WHATSAPP_TOKEN_FILE: /run/secrets/whatsapp-token.json
+    WHATSAPP_ALLOWED_RECIPIENTS_FILE: /run/secrets/whatsapp-allowed.json
+  volumes:
+    - app-data:/data
+    - attachments-data:/attachments
+    - attachment-keys:/private-links
+    - ./secrets/whatsapp-spike/session-token.json:/run/secrets/whatsapp-token.json:ro
+    - ./secrets/whatsapp-app/allowed-recipients.json:/run/secrets/whatsapp-allowed.json:ro
+    - type: bind
+      source: ./secrets/gmail-client.json
+      target: /run/secrets/gmail-client.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ./secrets/gmail-token.json
+      target: /run/secrets/gmail-token.json
+      read_only: true
+      bind:
+        create_host_path: false
+  network_mode: service:transport
+  init: true
+  restart: unless-stopped
+  stop_grace_period: 45s
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  logging:
+    driver: json-file
+    options:
+      max-size: "5m"
+      max-file: "2"
+
+services:
+  transport:
+    image: broadcast-whatsapp-transport:cf1098f-9d2171c
+    env_file: ./secrets/whatsapp-spike/transport.env
+    environment:
+      PORT: "21465"
+      DATA_DIR: /data
+      AUTO_RESTORE_SESSIONS: "true"
+      ENABLE_MANAGER: "false"
+      ENABLE_EXPERIMENTAL_INTERACTIVES: "false"
+      WEBHOOK_URL: ""
+      NATS_URL: ""
+      AMQP_URL: ""
+      S3_ENDPOINT: ""
+    ports:
+      - "127.0.0.1:21465:21465"
+    volumes:
+      - ./var/whatsapp-spike/data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    cpus: 1.0
+    mem_limit: 512m
+    pids_limit: 128
+    restart: unless-stopped
+    stop_grace_period: 35s
+    logging:
+      driver: none
+  init:
+    <<: *app
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        php tools/whatsapp/docker-init.php --check
+        case $$? in
+          0) exit 0 ;;
+          2) php bin/console migrate && php tools/whatsapp/docker-init.php ;;
+          *) exit 1 ;;
+        esac
+    restart: "no"
+    depends_on:
+      transport:
+        condition: service_healthy
+  poll:
+    <<: *app
+    command: ["poll"]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+  worker:
+    <<: *app
+    command: ["worker"]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+  whatsapp-poll:
+    <<: *app
+    command: ["whatsapp-poll"]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+  mailpit:
+    profiles: ["mailpit"]
+    image: axllent/mailpit:latest
+    ports:
+      - "127.0.0.1:8025:8025"
+    restart: unless-stopped
+
+volumes:
+  app-data:
+  attachments-data:
+  attachment-keys:

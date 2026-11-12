@@ -55,6 +55,7 @@ final class CatchupHistoryTest extends TestCase
     {
         $statement = $this->db->prepare("INSERT INTO users(id,language,status,subscribed,email) VALUES(?,?,'approved',1,?)");
         $statement->execute([$id, $language, "user$id@example.invalid"]);
+        $this->store->saveUser($this->store->user($id));
     }
 
     private function approve(string $text, int $author = 99): int
