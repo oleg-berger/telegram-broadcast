@@ -3,6 +3,8 @@
 Бот регистрирует пользователей, переводит объявления и отправляет их в Telegram и на email.
 PHP 8.4+. SQLite. Два процесса: `poll` принимает сообщения, `worker` выполняет задания.
 
+Для существующего сервера Ubuntu без Docker добавлен установщик: MySQL, новый WhatsApp-отправитель через QR, HTTPS-вложения и службы systemd. [Установка за 7 команд и последующие обновления](docs/INSTALL-UBUNTU.md).
+
 Ветка `broadcast-whatsapp` добавляет WhatsApp и отдельный процесс `whatsapp-poll`.
 Готовый изолированный стенд с локальными Telegram/email описан в
 [инструкции WhatsApp](docs/whatsapp/APPLICATION.md).

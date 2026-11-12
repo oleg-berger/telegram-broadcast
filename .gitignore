@@ -8,3 +8,4 @@
 /.unlazy/
 .attachment-links.key
 *.attachment-links.key
+__pycache__/
