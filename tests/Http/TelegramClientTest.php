@@ -13,6 +13,39 @@ use PHPUnit\Framework\TestCase;
 
 final class TelegramClientTest extends TestCase
 {
+    public function testKeyboardStylesAndEditingUseTelegramApi(): void
+    {
+        $http = new FakeHttpClient();
+        $http->respond(new HttpResponse(200, '{"ok":true,"result":{"message_id":77}}'));
+        $http->respond(new HttpResponse(200, '{"ok":true,"result":{"message_id":77}}'));
+        $client = new TelegramClient('token', $http);
+        $rows = [[['text' => 'Send', 'callback_data' => 'send', 'style' => 'success']],
+            [['text' => 'Delete', 'callback_data' => 'remove', 'style' => 'danger']]];
+        $client->sendMessage(42, 'Preview', ['reply_markup' => ['inline_keyboard' => $rows]]);
+        $client->editKeyboard(42, 77, $rows);
+        foreach ($http->requests as $request) {
+            self::assertSame($rows, json_decode($request['body'], true)['reply_markup']['inline_keyboard']);
+        }
+        self::assertStringEndsWith('/editMessageReplyMarkup', $http->requests[1]['url']);
+        self::assertSame(77, json_decode($http->requests[1]['body'], true)['message_id']);
+    }
+
+    public function testKeyboardRetryAcceptsAlreadyAppliedEditAndRejectsOtherErrors(): void
+    {
+        $http = new FakeHttpClient();
+        $http->respond(new HttpResponse(400, '{"ok":false,"error_code":400,"description":"Bad Request: message is not modified"}'));
+        $http->respond(new HttpResponse(400, '{"ok":false,"error_code":400,"description":"Bad Request: private upstream content"}'));
+        $client = new TelegramClient('token', $http);
+        $client->editKeyboard(42, 77, []);
+        try {
+            $client->editKeyboard(42, 77, []);
+            self::fail('Other errors must remain failures.');
+        } catch (ApiFailure $failure) {
+            self::assertStringNotContainsString('private upstream', $failure->getMessage());
+            self::assertFalse($failure->transient);
+        }
+    }
+
     public function testSendMessageUsesTelegramJsonApiWithoutParseMode(): void
     {
         $http = new FakeHttpClient();

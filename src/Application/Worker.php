@@ -58,7 +58,9 @@ final class Worker
         try {
             match ($job['kind']) {
                 'attachment_download' => $this->downloadAttachment($job),
-                'draft_preview' => $this->draftPreview($job),
+                'draft_preview' => $this->draftPreview($job, $now),
+                'attachment_notice' => $this->store->finishAttachmentNotice($job['id'], $now),
+                'edit_keyboard' => $this->editKeyboard($job),
                 'attachment_cleanup' => $this->cleanupAttachments($job, $now),
                 'directory_sync' => $this->syncDirectory($job),
                 'audience_snapshot' => $this->snapshotAudience($job),
@@ -80,7 +82,10 @@ final class Worker
         } catch (ApiFailure|MailSizeExceeded $failure) {
             if ($failure instanceof MailSizeExceeded) { $failure = new ApiFailure('Email exceeds size limit.'); }
             if ($failure->uncertain ?? false) {
-                $this->store->completeJob($job['id'], 'unknown');
+                $this->store->transaction(function () use ($job): void {
+                    $this->store->completeJob($job['id'], 'unknown');
+                    if ($job['kind'] === 'draft_preview') { $this->notifyPreviewInterrupted($job); }
+                });
                 $this->log('job_uncertain', $job);
                 $this->store->refreshBroadcasts();
                 return true;
@@ -111,9 +116,10 @@ final class Worker
                 $staff = $job['payload']['staff_id'] ?? $job['user_id'];
                 $this->store->queueReply($staff, sprintf('Задание #%d (%s) не выполнено. Проверьте сервис. Повтор: /retryjob %d', $job['id'], $job['kind'], $job['id']));
             }
-            if ($failed && in_array($job['kind'], ['attachment_download','draft_preview'], true)) {
+            if ($failed && $job['kind'] === 'attachment_download') {
                 $this->store->queueReply($job['payload']['staff_id'] ?? $job['user_id'], Messages::text('RU', 'attachment_download_failed', ['id' => $job['id']]));
             }
+            if ($failed && $job['kind'] === 'draft_preview') { $this->notifyPreviewInterrupted($job); }
             if ($sync && ($failed || $attempts === 5)) {
                 $this->notifyWhatsApp($failed ? 'directory_sync_failed' : 'directory_sync_waiting', ['id' => $job['id']]);
             }
@@ -263,21 +269,45 @@ final class Worker
         finally { if (is_string($temporary) && is_file($temporary)) { unlink($temporary); } }
     }
 
-    private function draftPreview(array $job): void
+    private function editKeyboard(array $job): void
     {
         $payload = $job['payload'];
         $draft = $this->store->draft($payload['draft_id']);
-        if (!$draft || $draft['version'] !== $payload['version'] || !$this->store->draftReady($draft['id'])) { $this->store->completeJob($job['id'], 'skipped'); return; }
-        if (!isset($payload['audience_counts'])) {
-            $snapshot = null;
-            if ($this->store->directoryEnabled()) {
-                if ($this->directory === null) { throw new ApiFailure('Directory unavailable.', true); }
-                $snapshot = $this->directory->snapshot($payload['snapshot_id']);
-            }
-            $payload['audience_counts'] = $this->store->draftAudienceCounts($draft['admin_id'], $snapshot);
-            $payload['text'] .= "\n\n" . Messages::text('RU', 'draft_audience_counts', $payload['audience_counts']);
-            $this->store->updateJobPayload($job['id'], $payload);
-            if ($snapshot !== null) { return; }
+        if (!$draft || $draft['admin_id'] !== $job['user_id'] || $draft['version'] !== $payload['version']
+            || !in_array($draft['status'], ['draft', 'changes'], true)) {
+            $this->store->completeJob($job['id'], 'skipped');
+            return;
+        }
+        if (!$this->telegram instanceof TelegramKeyboardGateway) { throw new ApiFailure('Keyboard adapter unavailable.'); }
+        $this->telegram->editKeyboard($job['user_id'], $payload['message_id'], $payload['rows']);
+        $this->store->completeJob($job['id']);
+    }
+
+    private function notifyPreviewInterrupted(array $job): void
+    {
+        $payload = $job['payload'];
+        $draft = $this->store->draft($payload['draft_id']);
+        if (!$draft || $draft['version'] !== $payload['version'] || !in_array($draft['status'], ['draft', 'changes', 'pending'], true)) {
+            return;
+        }
+        $options = [];
+        if ($draft['admin_id'] === $job['user_id'] && in_array($draft['status'], ['draft', 'changes'], true)) {
+            $options = ['reply_markup' => ['inline_keyboard' => [[[
+                'text' => Messages::text('RU', 'draft_cancel'),
+                'callback_data' => 'draft:cancel:' . $draft['id'] . ':' . $draft['version'],
+            ]]]]];
+        }
+        $this->store->queueReply($job['user_id'], Messages::text('RU', 'attachment_preview_interrupted', $draft), $options);
+    }
+
+    private function draftPreview(array $job, int $now): void
+    {
+        $payload = $job['payload'];
+        $draft = $this->store->draft($payload['draft_id']);
+        if (!$draft || $draft['version'] !== $payload['version'] || !in_array($draft['status'], ['draft', 'changes', 'pending'], true)) { $this->store->completeJob($job['id'], 'skipped'); return; }
+        if (!$this->store->draftReady($draft['id'])) {
+            $this->store->deferJob($job['id'], $job['attempts'], $now + 2, 'attachments_pending', false);
+            return;
         }
         $textParts = TextParts::split($payload['text']);
         $files = $this->store->draftAttachments($draft['id']);

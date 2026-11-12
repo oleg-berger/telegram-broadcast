@@ -24,7 +24,7 @@ final class AttachmentDraftTest extends TestCase
         self::assertFalse($store->retryAuxiliaryJob($export,99,false,false));
     }
 
-    public function testDirectoryPreviewReadsCountsInWorkerBeforeOfferingApproval(): void
+    public function testDirectorySnapshotIsOnlyRequestedAfterApproval(): void
     {
         $store=new SqliteStore(':memory:',directoryEnabled:true);$store->migrate();$bot=new Kernel($store,[99],[100]);
         $bot->handle(['update_id'=>1,'message'=>['from'=>['id'=>100],'chat'=>['id'=>100,'type'=>'private'],'text'=>'News']]);
@@ -41,14 +41,19 @@ final class AttachmentDraftTest extends TestCase
         $worker=new Worker($store,$telegram,$this->createMock(Translator::class),directory:$directory);
         $now=time();for($i=0;$i<20;++$i){$before=count($events);$worker->tick($now+$i);self::assertLessThanOrEqual(1,count($events)-$before);}
         $counts=\Broadcast\Application\Messages::text('RU','draft_audience_counts',['telegram'=>1,'email'=>1,'whatsapp'=>1]);
-        self::assertStringContainsString($counts,implode("\n",array_column($messages,0)));
+        self::assertStringNotContainsString($counts,implode("\n",array_column($messages,0)));
+        self::assertNotContains('snapshot', $events);
         self::assertSame('draft:send:1:2',$messages[array_key_last($messages)][1]['reply_markup']['inline_keyboard'][0][0]['callback_data']);
-        self::assertTrue($store->draftPreviewed(1,2,100));
+        self::assertFalse($store->draftPreviewed(1,2,100));
         $bot->handle(['update_id'=>3,'callback_query'=>['id'=>'approve','from'=>['id'=>100],'message'=>['chat'=>['id'=>100,'type'=>'private']],'data'=>'draft:send:1:2']]);
         self::assertSame('preparing_audience',$store->broadcast(1)['status']);
         $db=(new \ReflectionProperty($store,'db'))->getValue($store);
         $payloads=array_map(fn($payload)=>json_decode($payload,true),$db->query("SELECT payload FROM jobs WHERE kind='message' AND status='pending'")->fetchAll(\PDO::FETCH_COLUMN));
-        self::assertContains(\Broadcast\Application\Messages::text('RU','broadcast_audience_preparing',['id'=>1]),array_column($payloads,'text'));
+        self::assertNotContains(\Broadcast\Application\Messages::text('RU','broadcast_audience_preparing',['id'=>1]),array_column($payloads,'text'));
+        for ($i = 0; $i < 5 && !in_array('snapshot', $events, true); ++$i) { $worker->tick($now + 30 + $i); }
+        self::assertContains('snapshot', $events);
+        $payloads = array_map(fn($payload) => json_decode($payload, true), $db->query("SELECT payload FROM jobs WHERE kind='message'")->fetchAll(\PDO::FETCH_COLUMN));
+        self::assertContains(\Broadcast\Application\Messages::text('RU', 'broadcast_started', ['id' => 1, 'recipients' => 1]), array_column($payloads, 'text'));
     }
 
     public function testLegacyPreviewCountsApprovedEnabledChannelsAndExcludesAuthor(): void

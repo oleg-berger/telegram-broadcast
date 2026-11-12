@@ -88,7 +88,14 @@ services:
   init:
     <<: *app
     entrypoint: ["sh", "-c"]
-    command: ["php bin/console migrate && php tools/whatsapp/docker-init.php"]
+    command:
+      - |
+        php tools/whatsapp/docker-init.php --check
+        case $$? in
+          0) exit 0 ;;
+          2) php bin/console migrate && php tools/whatsapp/docker-init.php ;;
+          *) exit 1 ;;
+        esac
     restart: "no"
     depends_on:
       transport:

@@ -17,10 +17,12 @@ final class ApplicationCard
         } elseif ($user['status'] === 'rejected') {
             $rows[] = [['text' => 'Разрешить повторную подачу', 'callback_data' => "app:reopen:$id:$revision"]];
         }
+        $telegram = array_filter($store->identities($user['id']), static fn ($identity) => $identity['channel'] === 'telegram');
+        $channels = $telegram === [] ? self::channels($store, $user, 'RU') . "\n" : '';
         $store->queueReply(
             $staff,
-            "Заявка #$id · " . $user['status'] . "\n" . self::channels($store, $user, 'RU')
-                . "\n" . Messages::text('RU', 'review', [...$user, 'language' => Messages::LANGUAGES[$user['language']]]),
+            "Заявка #$id · " . $user['status'] . "\n" . $channels
+                . Messages::text('RU', 'review', [...$user, 'language' => Messages::LANGUAGES[$user['language']]]),
             ['reply_markup' => ['inline_keyboard' => $rows]],
         );
     }
@@ -39,8 +41,8 @@ final class ApplicationCard
     public static function sendChannelStatus(Store $store, array $user, ?int $identityId = null): void
     {
         foreach ($store->identities($user['id']) as $identity) {
-            if ($identity['channel'] === 'whatsapp') {
-                $store->queueUserReply($user['id'], self::channels($store, $user, $user['language']), [], $identityId);
+            if ($identity['channel'] === 'whatsapp' && ($identityId === null || $identity['id'] === $identityId)) {
+                $store->queueUserReply($user['id'], self::channels($store, $user, $user['language']), [], $identity['id']);
                 return;
             }
         }

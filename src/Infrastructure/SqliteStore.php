@@ -432,6 +432,68 @@ final class SqliteStore implements Store
         $this->job('photo', null, $chatId, null, ['caption' => $caption]);
     }
 
+    public function queueKeyboard(int $actor, int $messageId, int $draftId, int $version, array $rows): void
+    {
+        $this->job('edit_keyboard', null, $actor, null, ['message_id' => $messageId, 'draft_id' => $draftId, 'version' => $version, 'rows' => $rows]);
+    }
+
+    public function queueAttachmentNotice(int $draftId): void
+    {
+        $draft = $this->draft($draftId);
+        $files = $this->draftAttachments($draftId);
+        $attachmentId = $files[array_key_last($files)]['id'];
+        $job = $this->one("SELECT * FROM jobs WHERE kind='attachment_notice' AND status='pending' AND json_extract(payload,'$.draft_id')=CAST(? AS INTEGER)", [$draftId]);
+        if ($job === null) {
+            $this->job('attachment_notice', null, $draft['admin_id'], null, ['draft_id' => $draftId, 'attachment_ids' => [$attachmentId]]);
+            $jobId = (int) $this->db->lastInsertId();
+        } else {
+            $jobId = $job['id'];
+            $payload = json_decode($job['payload'], true, flags: JSON_THROW_ON_ERROR);
+            $payload['attachment_ids'][] = $attachmentId;
+            $this->updateJobPayload($jobId, $payload);
+        }
+        $this->run('UPDATE jobs SET next_at=? WHERE id=?', [time() + 2, $jobId]);
+    }
+
+    public function finishAttachmentNotice(int $jobId, int $now): void
+    {
+        $this->transaction(function () use ($jobId, $now): void {
+            // Reload under the write lock so arrivals cannot be lost while the worker counts a batch.
+            $job = $this->one("SELECT * FROM jobs WHERE id=? AND status='pending'", [$jobId]);
+            if ($job === null || $job['next_at'] > $now) { return; }
+            $payload = json_decode($job['payload'], true, flags: JSON_THROW_ON_ERROR);
+            $draft = $this->draft($payload['draft_id']);
+            if (!$draft || !in_array($draft['status'], ['draft', 'changes'], true)) {
+                $this->completeJob($jobId, 'skipped');
+                return;
+            }
+            $count = 0;
+            foreach ($this->draftAttachments($draft['id']) as $file) {
+                if (!in_array($file['id'], $payload['attachment_ids'], true)) { continue; }
+                if ($file['status'] === 'pending'
+                    && !$this->one("SELECT id FROM jobs WHERE kind='attachment_download' AND status='failed' AND json_extract(payload,'$.attachment_id')=CAST(? AS INTEGER)", [$file['id']])) {
+                    $this->run('UPDATE jobs SET next_at=? WHERE id=?', [$now + 2, $jobId]);
+                    return;
+                }
+                if ($file['status'] === 'ready') { ++$count; }
+            }
+            if ($count > 0) {
+                $this->queueReply($draft['admin_id'], Messages::text('RU', 'attachments_added', ['count' => $count, 'id' => $draft['id']]),
+                    Messages::attachmentDoneKeyboard($draft['id'], $draft['version']));
+            }
+            $this->completeJob($jobId);
+        });
+    }
+
+    public function queueBroadcastNotice(int $chatId, array $broadcast, string $key): void
+    {
+        if (!$this->directoryEnabled) {
+            $this->queueReply($chatId, Messages::text('RU', $key, $broadcast));
+            return;
+        }
+        $this->job('message', $broadcast['id'], $chatId, null, ['text' => '', 'options' => [], 'notice_key' => $key]);
+    }
+
     public function queueCallback(string $id): void { $this->job('callback', null, null, null, ['id' => $id]); }
 
     public function createBroadcast(int $adminId, string $text): array
@@ -536,10 +598,12 @@ final class SqliteStore implements Store
                 $this->job('delivery', $broadcastId, $userId, $recipient['language'], $payload, true, $recipient['channel']);
             }
             $this->run("UPDATE broadcasts SET status='preparing',audience_snapshot=? WHERE id=?", [$snapshot->id, $broadcastId]);
-            $counts = ['telegram' => 0, 'whatsapp' => 0, 'email' => 0];
-            foreach ($this->run("SELECT channel,COUNT(*) AS total FROM jobs WHERE broadcast_id=? AND kind='delivery' GROUP BY channel", [$broadcastId])->fetchAll() as $row) { $counts[$row['channel']] = (int) $row['total']; }
-            foreach (array_unique([$broadcast['admin_id'], $broadcast['approved_by']]) as $staff) {
-                $this->queueReply($staff, Messages::text('RU', 'broadcast_audience_ready', ['id' => $broadcastId] + $counts));
+            $recipients = (int) $this->run("SELECT COUNT(DISTINCT user_id) FROM jobs WHERE broadcast_id=? AND kind='delivery'", [$broadcastId])->fetchColumn();
+            foreach ($this->run("SELECT id,payload FROM jobs WHERE broadcast_id=? AND kind='message' AND json_extract(payload,'$.notice_key') IS NOT NULL", [$broadcastId])->fetchAll() as $notice) {
+                $payload = json_decode($notice['payload'], true, flags: JSON_THROW_ON_ERROR);
+                $payload['text'] = Messages::text('RU', $payload['notice_key'], ['id' => $broadcastId, 'recipients' => $recipients]);
+                unset($payload['notice_key']);
+                $this->updateJobPayload($notice['id'], $payload);
             }
             return true;
         });
@@ -825,6 +889,8 @@ final class SqliteStore implements Store
 
     public function queueDraftPreview(int $actor, int $draftId, int $version, string $text, array $options): void
     {
+        if ($this->one("SELECT id FROM jobs WHERE kind='draft_preview' AND status='pending' AND user_id=?
+            AND json_extract(payload,'$.draft_id')=CAST(? AS INTEGER) AND json_extract(payload,'$.version')=CAST(? AS INTEGER)", [$actor, $draftId, $version])) { return; }
         $this->job('draft_preview', null, $actor, null, ['draft_id' => $draftId, 'version' => $version, 'text' => $text, 'options' => $options, 'snapshot_id' => bin2hex(random_bytes(16))]);
     }
 
@@ -928,11 +994,12 @@ final class SqliteStore implements Store
     {
         // Network calls run outside transactions. The process lock guarantees one worker.
         $job = $this->one("SELECT j.* FROM jobs j LEFT JOIN broadcasts b ON b.id=j.broadcast_id
-            WHERE j.status='pending' AND j.next_at<=? AND (j.channel!='whatsapp' OR (
+            WHERE j.status='pending' AND json_extract(j.payload,'$.notice_key') IS NULL AND j.next_at<=? AND (j.channel!='whatsapp' OR (
                 (EXISTS (SELECT 1 FROM channel_states WHERE channel='whatsapp' AND state='connected') OR COALESCE((SELECT next_probe_at FROM channel_states WHERE channel='whatsapp'),0)<=CAST(? AS INTEGER))
                 AND (j.kind!='delivery' OR NOT EXISTS (SELECT 1 FROM jobs earlier WHERE earlier.channel='whatsapp' AND earlier.kind='delivery' AND earlier.status IN ('pending','sending') AND (earlier.broadcast_id<j.broadcast_id OR (earlier.broadcast_id=j.broadcast_id AND earlier.id<j.id))))
             )) AND (
-                j.kind IN ('message','photo','callback','translate','comment','export','directory_sync','attachment_download','draft_preview','attachment_cleanup') OR
+                j.kind IN ('message','photo','callback','translate','comment','export','directory_sync','attachment_download','edit_keyboard','attachment_notice','attachment_cleanup') OR
+                (j.kind='draft_preview' AND NOT EXISTS (SELECT 1 FROM jobs notice WHERE notice.kind='attachment_notice' AND notice.status='pending' AND json_extract(notice.payload,'$.draft_id')=json_extract(j.payload,'$.draft_id'))) OR
                 (j.kind IN ('audience_snapshot','directory_catchup') AND NOT EXISTS (SELECT 1 FROM jobs ds WHERE ds.kind='directory_sync' AND ds.status!='done')) OR
                 (j.kind='translate_subject' AND EXISTS (SELECT 1 FROM translations t WHERE t.broadcast_id=j.broadcast_id AND t.language=j.language)) OR
                 (j.kind='channel_post' AND b.approved_by>0 AND b.team_channel_id=j.user_id AND EXISTS (

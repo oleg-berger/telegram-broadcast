@@ -235,7 +235,8 @@ final class Registration
     private function duplicate(array $user, string $field, string $value): bool
     {
         if (!$this->store->contactTaken($field, $value, $user['id'])) { return false; }
-        if ($this->identityId !== null) {
+        $identity = $this->identityId !== null ? $this->store->identityById($this->identityId) : null;
+        if ($identity !== null && !($this->store->directoryEnabled() && $identity['channel'] === 'telegram')) {
             // A draft may remember a proposed contact; only submission reserves it.
             $user[$field] = $value;
             $this->store->saveUser($user);

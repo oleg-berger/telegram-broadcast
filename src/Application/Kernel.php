@@ -54,7 +54,7 @@ final class Kernel
                 if (str_starts_with($data, 'link:confirm:')) {
                     if ($identity !== null) { $this->linker->confirm($identity, substr($data, 13)); }
                 } elseif ($staff) {
-                    $this->staff->callback($id, $data, $callback['from'] ?? []);
+                    $this->staff->callback($id, $data, $callback['from'] ?? [], (int) ($message['message_id'] ?? 0));
                 } else {
                     $this->registration->callback($identity['user_id'], $data, $identity['id']);
                 }

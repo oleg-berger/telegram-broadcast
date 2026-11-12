@@ -58,7 +58,7 @@ final class SuperadminBroadcastTest extends TestCase
     private function preview(array $draft): string
     {
         return Messages::text('RU', 'draft_subject_label') . ' ' . $draft['subject'] . "\n\n" . $draft['text'] . "\n\n"
-            . Messages::text('RU', 'draft_audience_counts', $this->store->draftAudienceCounts($draft['admin_id'])) . "\n\n" . Messages::text('RU', 'draft_send_prompt');
+            . Messages::text('RU', 'draft_send_prompt');
     }
 
     private function drain(?string $failedText = null): array

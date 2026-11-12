@@ -121,7 +121,7 @@ final class Staff
         }
         if (preg_match('/^\/unsubscribe\s+([1-9][0-9]*)$/D', $text, $match)) {
             if (!$this->super($id)) { $this->reply($id, 'Отписка пользователей доступна только суперадминистратору.'); return; }
-            $this->reply($id, $this->store->unsubscribeUser((int) $match[1]) ? 'Пользователь отписан от рассылок в Telegram, WhatsApp и на почте.' : 'Пользователь не найден среди одобренных.');
+            $this->reply($id, $this->store->unsubscribeUser((int) $match[1]) ? 'Пользователь отписан от рассылок в Telegram и на почте.' : 'Пользователь не найден среди одобренных.');
             return;
         }
         if (preg_match('/^\/userdata$/iD', $text)) {
@@ -149,7 +149,7 @@ final class Staff
         }
         if ($text === '/cancel') {
             $session = $this->store->session($id);
-            if ($session && in_array($session['kind'], ['draft:subject', 'draft:text'], true)) {
+            if ($session && in_array($session['kind'], ['draft:subject', 'draft:text', 'draft:files'], true)) {
                 $draft = $this->store->draft($session['id']);
                 if ($draft && $draft['admin_id'] === $id && in_array($draft['status'], ['draft', 'changes'], true)) {
                     $this->store->saveDraft($draft['id'], $draft['version'], ['status' => 'cancelled']);
@@ -170,16 +170,17 @@ final class Staff
         if ($this->super($id) || $this->adminsCanExport) { $help .= "\n/userdata — общая база Excel"; }
         if ($this->approveUsers($id) || $this->adminsCanExport) { $help .= "\n/retryjob ID — повторить ошибку комментария или Excel"; }
         if ($this->super($id)) { $help .= "\n/unsubscribe ID — отписать пользователя"; }
-        if ($this->super($id)) { $help .= "\n" . Messages::text('RU', 'link_staff_help'); }
         $this->reply($id, $help);
     }
 
-    public function callback(int $id, string $data, array $from = []): void
+    public function callback(int $id, string $data, array $from = [], int $messageId = 0): void
     {
         if (preg_match('/^draft:remove:([1-9][0-9]*):([0-9]+):([1-9][0-9]*)$/D', $data, $remove)) {
             $draft = $this->store->draft((int) $remove[1]);
             if (!$draft || $draft['admin_id'] !== $id || !$this->store->removeDraftAttachment($draft['id'], (int) $remove[2], (int) $remove[3])) { $this->stale($id); return; }
-            $this->preview($id, $this->store->draft($draft['id']));
+            $draft = $this->store->draft($draft['id']);
+            if ($messageId > 0) { $this->store->queueKeyboard($id, $messageId, $draft['id'], $draft['version'], []); }
+            $this->preview($id, $draft);
             return;
         }
         if (preg_match('/^app:(approve|changes|reject|reopen):([1-9][0-9]*):([0-9]+)$/D', $data, $match)) {
@@ -204,7 +205,7 @@ final class Staff
             }
             return;
         }
-        if (!preg_match('/^draft:(send|submit|approve|return|text|subject|cancel|files|finish):([1-9][0-9]*):([0-9]+)$/D', $data, $match)) { return; }
+        if (!preg_match('/^draft:(send|submit|approve|return|text|subject|cancel|files|finish|removefiles|back|done):([1-9][0-9]*):([0-9]+)$/D', $data, $match)) { return; }
         [$all, $action, $draftId, $version] = $match;
         $draft = $this->store->draft((int) $draftId);
         if (!$draft || $draft['version'] !== (int) $version) { $this->stale($id); return; }
@@ -219,8 +220,8 @@ final class Staff
             $broadcast = $this->store->approveDraft($draft['id'], $draft['version'], $id);
             if ($broadcast) {
                 foreach (array_unique([$id, $draft['admin_id']]) as $staff) {
-                    $key = $this->store->directoryEnabled() ? 'broadcast_audience_preparing' : ($this->super($staff) ? 'broadcast_approved_staff' : 'broadcast_approved_author');
-                    $this->reply($staff, Messages::text('RU', $key, $broadcast));
+                    $key = $this->super($staff) ? 'broadcast_approved_staff' : 'broadcast_approved_author';
+                    $this->store->queueBroadcastNotice($staff, $broadcast, $key);
                 }
             }
             return;
@@ -231,10 +232,30 @@ final class Staff
         }
         if ($action === 'files') {
             $this->store->saveSession($id, ['kind' => 'draft:files', 'id' => $draft['id'], 'version' => $draft['version']]);
-            $this->reply($id, Messages::text('RU', 'attachment_input_help'));
+            $this->store->queueReply($id, Messages::text('RU', 'attachment_input_help'), Messages::attachmentDoneKeyboard($draft['id'], $draft['version']));
             return;
         }
-        if ($action === 'finish') { $this->preview($id, $draft); return; }
+        if ($action === 'removefiles') {
+            $rows = [];
+            foreach ($this->store->draftAttachments($draft['id']) as $index => $file) {
+                $rows[] = [[
+                    'text' => Messages::text('RU', 'attachment_remove', ['position' => $index + 1]),
+                    'callback_data' => 'draft:remove:' . $draft['id'] . ':' . $draft['version'] . ':' . $file['id'],
+                ]];
+            }
+            $rows[] = [['text' => Messages::text('RU', 'back'), 'callback_data' => 'draft:back:' . $draft['id'] . ':' . $draft['version']]];
+            if ($messageId > 0) { $this->store->queueKeyboard($id, $messageId, $draft['id'], $draft['version'], $rows); }
+            return;
+        }
+        // Older deletion menus used finish for Back after a completed preview.
+        if ($action === 'back' || ($action === 'finish' && $this->store->draftPreviewed($draft['id'], $draft['version'], $id))) {
+            if ($messageId > 0) {
+                $rows = $this->previewButtons($id, $draft, $this->store->draftAttachments($draft['id']) !== []);
+                $this->store->queueKeyboard($id, $messageId, $draft['id'], $draft['version'], $rows);
+            }
+            return;
+        }
+        if ($action === 'done' || $action === 'finish') { $this->preview($id, $draft); return; }
         if ($action === 'send' || ($action === 'submit' && $this->super($id))) {
             if (!$this->super($id)) { $this->reply($id, Messages::text('RU', 'draft_send_denied')); return; }
             $this->sendOwnDraft($id, $draft);
@@ -277,7 +298,7 @@ final class Staff
         $broadcast = $this->store->approveDraft($draft['id'], $draft['version'] + 1, $id);
         $this->store->saveSession($id, null);
         if ($broadcast) {
-            $this->reply($id, Messages::text('RU', $this->store->directoryEnabled() ? 'broadcast_audience_preparing' : 'broadcast_started', $broadcast));
+            $this->store->queueBroadcastNotice($id, $broadcast, 'broadcast_started');
         }
     }
 
@@ -318,7 +339,7 @@ final class Staff
         return $name !== '' ? $name : (string) $id;
     }
 
-    private function preview(int $id, array $draft, ?string $author = null): void
+    private function previewButtons(int $id, array $draft, bool $hasFiles): array
     {
         $rows = [];
         $suffix = $draft['id'] . ':' . $draft['version'];
@@ -331,19 +352,37 @@ final class Staff
         } else {
             $actions = [];
         }
-        foreach ($actions as $action => $key) { $rows[] = [['text' => Messages::text('RU', $key), 'callback_data' => 'draft:' . $action . ':' . $suffix]]; }
+        foreach ($actions as $action => $key) {
+            $button = ['text' => Messages::text('RU', $key), 'callback_data' => 'draft:' . $action . ':' . $suffix];
+            if ($action === 'send') { $button['style'] = 'success'; }
+            $rows[] = [$button];
+        }
         if ($ownEditable) { $rows[] = [['text' => Messages::text('RU', 'attachment_add'), 'callback_data' => 'draft:files:' . $suffix]]; }
+        if ($ownEditable && $hasFiles) {
+            $rows[] = [['text' => Messages::text('RU', 'attachment_remove_files'), 'callback_data' => 'draft:removefiles:' . $suffix, 'style' => 'danger']];
+        }
+        return $rows;
+    }
+
+    private function preview(int $id, array $draft, ?string $author = null): void
+    {
+        $ownEditable = $draft['admin_id'] === $id && in_array($draft['status'], ['draft', 'changes'], true);
+        $direct = $ownEditable && $this->super($id);
         $content = Messages::text('RU', 'draft_subject_label') . ' ' . $draft['subject'] . "\n\n" . $draft['text'];
         $files = $this->store->draftAttachments($draft['id']);
-        if ($files !== [] || $this->store->directoryEnabled()) {
-            if (!$this->store->draftReady($draft['id'])) { $this->reply($id, Messages::text('RU', 'attachment_wait'), [[['text' => Messages::text('RU', 'attachment_finish'), 'callback_data' => 'draft:finish:' . $suffix]]]); return; }
-            if ($ownEditable) {
-                foreach ($files as $file) { $rows[] = [['text' => Messages::text('RU', 'attachment_remove', ['position' => $file['position']]), 'callback_data' => 'draft:remove:' . $suffix . ':' . $file['id']]]; }
+        $rows = $this->previewButtons($id, $draft, $files !== []);
+        if ($files !== []) {
+            if (trim($draft['subject']) === '') {
+                $this->reply($id, Messages::text('RU', 'draft_subject_required'));
+                return;
+            }
+            if (!$direct) {
+                $signature = $this->super($id) ? "\n" . Messages::text('RU', 'draft_author', ['author' => $author ?? (string) $draft['admin_id']]) : '';
+                $content = Messages::text('RU', 'draft_preview_header', ['id' => $draft['id'], 'status' => $draft['status']]) . $signature . "\n" . $content;
             }
             $this->store->queueDraftPreview($id, $draft['id'], $draft['version'], $content, ['reply_markup' => ['inline_keyboard' => $rows]]);
             return;
         }
-        $content .= "\n\n" . Messages::text('RU', 'draft_audience_counts', $this->store->draftAudienceCounts($draft['admin_id']));
         if ($direct) {
             $this->reply($id, $content . "\n\n" . Messages::text('RU', 'draft_send_prompt'), $rows);
             return;
@@ -375,8 +414,11 @@ final class Staff
             $this->reply($id, Messages::text('RU', 'attachment_invalid')); return;
         }
         $draft = $this->store->draft($draft['id']);
+        $this->store->queueAttachmentNotice($draft['id']);
         $this->store->saveSession($id, ['kind' => trim($draft['subject']) === '' ? 'draft:subject' : 'draft:files', 'id' => $draft['id'], 'version' => $draft['version']]);
-        $this->reply($id, Messages::text('RU', trim($draft['subject']) === '' ? 'draft_subject_prompt' : 'attachment_added', $draft));
+        if (trim($draft['subject']) === '' && ($session['kind'] ?? '') !== 'draft:subject') {
+            $this->reply($id, Messages::text('RU', 'draft_subject_prompt', $draft));
+        }
         if (isset($message['caption'])) { $this->reply($id, Messages::text('RU', 'attachment_caption_ignored')); }
     }
 

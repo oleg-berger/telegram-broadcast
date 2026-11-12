@@ -65,6 +65,10 @@ interface Store
     public function pendingWhatsAppReceipts(int $limit = 100): array;
     public function completeWhatsAppReceipt(string $eventId): void;
     public function queueReply(int $chatId, string $text, array $options = []): void;
+    public function queueKeyboard(int $actor, int $messageId, int $draftId, int $version, array $rows): void;
+    public function finishAttachmentNotice(int $jobId, int $now): void;
+    public function queueAttachmentNotice(int $draftId): void;
+    public function queueBroadcastNotice(int $chatId, array $broadcast, string $key): void;
     public function queuePhoto(int $chatId, string $caption): void;
     public function queueCallback(string $id): void;
     public function createBroadcast(int $adminId, string $text): array;

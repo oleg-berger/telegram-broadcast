@@ -19,6 +19,15 @@ final class Messages
         return $text;
     }
 
+    public static function attachmentDoneKeyboard(int $draftId, int $version): array
+    {
+        return ['reply_markup' => ['inline_keyboard' => [[[
+            'text' => self::text('RU', 'attachment_finish'),
+            'callback_data' => 'draft:done:' . $draftId . ':' . $version,
+            'style' => 'success',
+        ]]]]];
+    }
+
     public static function languageKeyboard(): array
     {
         $buttons = [];

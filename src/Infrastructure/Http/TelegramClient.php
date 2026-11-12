@@ -7,9 +7,10 @@ namespace Broadcast\Infrastructure\Http;
 use Broadcast\Application\AttachmentTelegramGateway;
 use Broadcast\Domain\Attachment;
 use Broadcast\Domain\ApiFailure;
+use Broadcast\Application\TelegramKeyboardGateway;
 use JsonException;
 
-final class TelegramClient implements AttachmentTelegramGateway
+final class TelegramClient implements AttachmentTelegramGateway, TelegramKeyboardGateway
 {
     private const string API_BASE = 'https://api.telegram.org';
 
@@ -28,6 +29,14 @@ final class TelegramClient implements AttachmentTelegramGateway
             ...$options,
             'chat_id' => $chatId,
             'text' => $text,
+        ]);
+    }
+
+    public function editKeyboard(int $chatId, int $messageId, array $rows): void
+    {
+        $this->call('editMessageReplyMarkup', [
+            'chat_id' => $chatId, 'message_id' => $messageId,
+            'reply_markup' => ['inline_keyboard' => $rows],
         ]);
     }
 
@@ -115,7 +124,8 @@ final class TelegramClient implements AttachmentTelegramGateway
             . "--$boundary\r\nContent-Disposition: form-data; name=\"document\"; filename=\"$filename\"\r\nContent-Type: $mime\r\n\r\n"
             . $contents . "\r\n--$boundary--\r\n";
         try {
-            $response = $this->http->post(self::API_BASE . '/bot' . $this->token . '/sendDocument', ['Content-Type' => 'multipart/form-data; boundary=' . $boundary], $body, 30);
+            $timeout = strlen($contents) >= 10_000_000 ? 120 : 30;
+            $response = $this->http->post(self::API_BASE . '/bot' . $this->token . '/sendDocument', ['Content-Type' => 'multipart/form-data; boundary=' . $boundary], $body, $timeout);
         } catch (HttpTransportException $failure) {
             throw $this->transportFailure($failure, true);
         }
@@ -215,10 +225,10 @@ final class TelegramClient implements AttachmentTelegramGateway
             throw $this->transportFailure($exception, $method === 'sendMessage');
         }
 
-        return $this->decodeResponse($response, $method === 'sendMessage');
+        return $this->decodeResponse($response, $method === 'sendMessage', $method === 'editMessageReplyMarkup');
     }
 
-    private function decodeResponse(HttpResponse $response, bool $sending): mixed
+    private function decodeResponse(HttpResponse $response, bool $sending, bool $editingKeyboard = false): mixed
     {
         try {
             $decoded = json_decode($response->body, true, flags: JSON_THROW_ON_ERROR);
@@ -237,6 +247,12 @@ final class TelegramClient implements AttachmentTelegramGateway
         }
 
         if ($response->status >= 400 || ($decoded['ok'] ?? false) !== true) {
+            // Retrying a successful keyboard edit is an idempotent operation.
+            if ($editingKeyboard && $response->status === 400 && ($decoded['error_code'] ?? null) === 400
+                && is_string($decoded['description'] ?? null)
+                && str_starts_with($decoded['description'], 'Bad Request: message is not modified')) {
+                return true;
+            }
             $errorCode = is_int($decoded['error_code'] ?? null)
                 ? $decoded['error_code']
                 : $response->status;

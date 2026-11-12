@@ -175,10 +175,11 @@ final class DirectoryLifecycleTest extends TestCase
     {
         $store=new SqliteStore(':memory:',directoryEnabled:true);$store->migrate();
         $store->createDraft(99,'News');$store->saveDraft(1,1,['subject'=>'S','status'=>'pending']);$store->approveDraft(1,2,99);
+        $store->queueBroadcastNotice(99, ['id' => 1], 'broadcast_started');
         $store->publishAudience(1,new RecipientSnapshot('snap',time(),[['contact_id'=>7,'telegram_user_id'=>null,'phone'=>'+447700900001','channel'=>'whatsapp','address'=>'447700900001','language'=>'ES']]));
         $db=(new \ReflectionProperty($store,'db'))->getValue($store);
         $messages=array_map(fn($payload)=>json_decode($payload,true)['text'],$db->query("SELECT payload FROM jobs WHERE kind='message'")->fetchAll(\PDO::FETCH_COLUMN));
-        self::assertContains(\Broadcast\Application\Messages::text('RU','broadcast_audience_ready',['id'=>1,'telegram'=>0,'whatsapp'=>1,'email'=>0]),$messages);
+        self::assertContains(\Broadcast\Application\Messages::text('RU','broadcast_started',['id'=>1,'recipients'=>1]),$messages);
         $old=$store->identity('whatsapp','447700900001')['user_id'];
         $tg=$store->ensureIdentity('telegram','55');$user=$store->user($tg['user_id']);
         $user['phone']='+447700900001';$user['email']='one@example.test';$user['status']='pending';$store->saveUser($user);

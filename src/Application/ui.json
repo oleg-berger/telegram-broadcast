@@ -1,4 +1,6 @@
 {
+  "attachments_added": ["В черновик #{id} добавлено файлов: {count}.\nОтправьте остальные или нажмите кнопку «Готово».", "Files added to draft #{id}: {count}.\nSend more files or press Done.", "Archivos añadidos al borrador #{id}: {count}.\nEnvíe más archivos o pulse Listo.", "Fichiers ajoutés au brouillon nº {id} : {count}.\nEnvoyez les autres fichiers ou appuyez sur Terminé."],
+  "attachment_remove_files": ["Удалить файлы", "Delete files", "Eliminar archivos", "Supprimer des fichiers"],
   "broadcast_report_team_unknown": [
     "Канал команды (RU): неопределённый результат {unknown}. Автоматический повтор отключён.",
     "Team channel (RU): {unknown} unknown outcomes. Automatic retry is disabled.",
@@ -431,10 +433,10 @@
     "E-mail"
   ],
   "submitted": [
-    "✅ Спасибо! Ваша заявка отправлена на рассмотрение.\nКогда администратор одобрит её, мы сообщим вам здесь и отправим последнее опубликованное объявление в Telegram и на почту.\nПока ничего делать не нужно 😊",
-    "✅ Thank you! Your application has been submitted. Once approved, we will notify you here and send the latest announcement on Telegram and by email. No further action is needed 😊",
-    "✅ ¡Gracias! Su solicitud se ha enviado. Tras aprobarla, le avisaremos aquí y enviaremos el último anuncio por Telegram y correo. Por ahora no necesita hacer nada más 😊",
-    "✅ Merci ! Votre demande a été envoyée. Après approbation, nous vous informerons ici et enverrons la dernière annonce sur Telegram et par e-mail. Vous n’avez rien d’autre à faire 😊"
+    "✅ Спасибо! Ваша заявка отправлена на рассмотрение.\nКогда администратор одобрит её, мы сообщим вам здесь и отправим до пяти последних одобренных объявлений в Telegram и на почту.\nПока ничего делать не нужно 😊",
+    "✅ Thank you! Your application has been submitted. Once approved, we will notify you here and send up to five of the latest approved announcements on Telegram and by email. No further action is needed 😊",
+    "✅ ¡Gracias! Su solicitud se ha enviado. Tras aprobarla, le avisaremos aquí y enviaremos hasta cinco de los últimos anuncios aprobados por Telegram y correo. Por ahora no necesita hacer nada más 😊",
+    "✅ Merci ! Votre demande a été envoyée. Après approbation, nous vous informerons ici et enverrons jusqu’à cinq des dernières annonces approuvées sur Telegram et par e-mail. Vous n’avez rien d’autre à faire 😊"
   ],
   "pending": [
     "⏳ Ваша заявка ещё на рассмотрении. Мы сообщим вам о решении. Повторно заполнять анкету не нужно.",
@@ -492,10 +494,10 @@
   ],
 
   "attachment_finish": [
-    "Завершить",
-    "Завершить",
-    "Завершить",
-    "Завершить"
+    "Готово",
+    "Done",
+    "Listo",
+    "Terminé"
   ],
   "attachment_download_failed": [
     "Файл не загружен. Повтор: /retryjob {id}",
@@ -514,6 +516,12 @@
     "Комплект файлов показан полностью. Проверьте тему, текст и вложения перед подтверждением.",
     "Комплект файлов показан полностью. Проверьте тему, текст и вложения перед подтверждением.",
     "Комплект файлов показан полностью. Проверьте тему, текст и вложения перед подтверждением."
+  ],
+  "attachment_preview_interrupted": [
+    "Не удалось показать черновик #{id} полностью. Чтобы открыть предпросмотр заново, отправьте /draft {id}.",
+    "Could not show all of draft #{id}. Send /draft {id} to reopen the preview.",
+    "No se pudo mostrar todo el borrador #{id}. Envíe /draft {id} para volver a abrir la vista previa.",
+    "Le brouillon nº {id} n’a pas pu être affiché en entier. Envoyez /draft {id} pour rouvrir l’aperçu."
   ],
   "attachment_added": [
     "Файл добавлен в черновик #{id}. Добавьте остальные и отправьте /done.",
@@ -540,10 +548,10 @@
     "Удалить файл {position}"
   ],
   "attachment_input_help": [
-    "Добавьте фотографии или документы (до 10 файлов, каждый до 20 МБ). Отдельные подписи не используются. Затем нажмите «Завершить» или отправьте /done.",
-    "Добавьте фотографии или документы (до 10 файлов, каждый до 20 МБ). Отдельные подписи не используются. Затем нажмите «Завершить» или отправьте /done.",
-    "Добавьте фотографии или документы (до 10 файлов, каждый до 20 МБ). Отдельные подписи не используются. Затем нажмите «Завершить» или отправьте /done.",
-    "Добавьте фотографии или документы (до 10 файлов, каждый до 20 МБ). Отдельные подписи не используются. Затем нажмите «Завершить» или отправьте /done."
+    "Добавьте фотографии или документы (до 10 файлов, каждый до 20 МБ). Отдельные подписи не используются. Затем нажмите «Готово».",
+    "Add photos or documents (up to 10 files, each up to 20 MB). Individual captions are not used. Then press Done.",
+    "Añada fotos o documentos (hasta 10 archivos de 20 MB cada uno). No se usan pies de archivo individuales. Después pulse Listo.",
+    "Ajoutez des photos ou des documents (10 fichiers maximum, 20 Mo chacun). Les légendes individuelles ne sont pas utilisées. Appuyez ensuite sur Terminé."
   ],
   "attachment_report_partial": [
     "Неполные комплекты ({channel}): {count}.",
